@@ -8,6 +8,7 @@ from tensorflow.python.keras.models import load_model
 from unet3d.metrics import (dice_coefficient, dice_coefficient_loss, dice_coef, dice_coef_loss,
                             weighted_dice_coefficient_loss, weighted_dice_coefficient)
 
+from unet3d.utils.LMSKeras import LMSKerasCallback
 
 # In newer versions of Keras this is now set in ~/.keras/keras.json as:
 # "image_dim_ordering": "tf"
@@ -33,6 +34,9 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
                                            verbose=verbosity))
     if early_stopping_patience:
         callbacks.append(EarlyStopping(verbose=verbosity, patience=early_stopping_patience))
+
+    callbacks.append(LMSKerasCallback())
+
     return callbacks
 
 
