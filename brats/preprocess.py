@@ -13,7 +13,8 @@ import numpy as np
 from nipype.interfaces.ants import N4BiasFieldCorrection
 
 from brats.train import config
-
+from multiprocessing.dummy import Pool
+NUM_FOLDER_PROCESS_THREADS = 30
 
 def append_basename(in_file, append):
     dirname, basename = os.path.split(in_file)
@@ -115,8 +116,8 @@ def normalize_image(in_file, out_file, bias_correction=True):
     return out_file
 
 
-def convert_brats_folder(in_folder, out_folder, truth_name="GlistrBoost_ManuallyCorrected",
-                         no_bias_correction_modalities=None):
+def convert_brats_folder(in_folder, out_folder, truth_name,
+                         no_bias_correction_modalities):
     for name in config["all_modalities"]:
         image_file = get_image(in_folder, name)
         out_file = os.path.abspath(os.path.join(out_folder, name + ".nii.gz"))
@@ -143,6 +144,8 @@ def convert_brats_data(brats_folder, out_folder, overwrite=False, no_bias_correc
     or tuple.
     :return:
     """
+    truth_name="GlistrBoost_ManuallyCorrected"
+    convert_brats_folder_args = []
     for subject_folder in glob.glob(os.path.join(brats_folder, "*", "*")):
         if os.path.isdir(subject_folder):
             subject = os.path.basename(subject_folder)
@@ -151,5 +154,9 @@ def convert_brats_data(brats_folder, out_folder, overwrite=False, no_bias_correc
             if not os.path.exists(new_subject_folder) or overwrite:
                 if not os.path.exists(new_subject_folder):
                     os.makedirs(new_subject_folder)
-                convert_brats_folder(subject_folder, new_subject_folder,
-                                     no_bias_correction_modalities=no_bias_correction_modalities)
+                args = (subject_folder, new_subject_folder, truth_name, no_bias_correction_modalities)
+                convert_brats_folder_args.append(args)
+    pool = Pool(processes=NUM_FOLDER_PROCESS_THREADS)
+    pool.starmap(convert_brats_folder, convert_brats_folder_args)
+    pool.join()
+    pool.close()
