@@ -158,5 +158,5 @@ def convert_brats_data(brats_folder, out_folder, overwrite=False, no_bias_correc
                 convert_brats_folder_args.append(args)
     pool = Pool(processes=NUM_FOLDER_PROCESS_THREADS)
     pool.starmap(convert_brats_folder, convert_brats_folder_args)
-    pool.join()
     pool.close()
+    pool.join()
