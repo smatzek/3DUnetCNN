@@ -14,7 +14,7 @@ from nipype.interfaces.ants import N4BiasFieldCorrection
 
 from brats.train import config
 from multiprocessing.dummy import Pool
-NUM_FOLDER_PROCESS_THREADS = 30
+NUM_FOLDER_PROCESS_THREADS = 1
 
 def append_basename(in_file, append):
     dirname, basename = os.path.split(in_file)
