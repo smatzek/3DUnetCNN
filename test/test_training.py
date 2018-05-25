@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from keras.callbacks import ReduceLROnPlateau, EarlyStopping
+from tensorflow.python.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 
 from unet3d.training import get_callbacks
 

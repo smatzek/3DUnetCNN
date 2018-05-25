@@ -1,14 +1,17 @@
 import math
 from functools import partial
 
-from keras import backend as K
-from keras.callbacks import ModelCheckpoint, CSVLogger, LearningRateScheduler, ReduceLROnPlateau, EarlyStopping
-from keras.models import load_model
+from tensorflow.python.keras import backend as K
+from tensorflow.python.keras.callbacks import ModelCheckpoint, CSVLogger, LearningRateScheduler, ReduceLROnPlateau, EarlyStopping
+from tensorflow.python.keras.models import load_model
 
 from unet3d.metrics import (dice_coefficient, dice_coefficient_loss, dice_coef, dice_coef_loss,
                             weighted_dice_coefficient_loss, weighted_dice_coefficient)
 
-K.set_image_dim_ordering('th')
+
+# In newer versions of Keras this is now set in ~/.keras/keras.json as:
+# "image_dim_ordering": "tf"
+# K.set_image_dim_ordering('th')
 
 
 # learning rate schedule
@@ -40,7 +43,7 @@ def load_old_model(model_file):
                       'weighted_dice_coefficient': weighted_dice_coefficient,
                       'weighted_dice_coefficient_loss': weighted_dice_coefficient_loss}
     try:
-        from keras_contrib.layers import InstanceNormalization
+        from unet3d.model.instancenorm import InstanceNormalization
         custom_objects["InstanceNormalization"] = InstanceNormalization
     except ImportError:
         pass
@@ -73,7 +76,7 @@ def train_model(model, model_file, training_generator, validation_generator, ste
     :param learning_rate_drop: How much at which to the learning rate will decay.
     :param learning_rate_epochs: Number of epochs after which the learning rate will drop.
     :param n_epochs: Total number of epochs to train the model.
-    :return: 
+    :return:
     """
     model.fit_generator(generator=training_generator,
                         steps_per_epoch=steps_per_epoch,

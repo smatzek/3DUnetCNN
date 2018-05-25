@@ -1,17 +1,17 @@
 import numpy as np
-from keras import backend as K
-from keras.engine import Input, Model
-from keras.layers import Conv3D, MaxPooling3D, UpSampling3D, Activation, BatchNormalization, PReLU, Deconvolution3D
-from keras.optimizers import Adam
+from tensorflow.python.keras import backend as K
+from tensorflow.python.keras.models import Model
+from tensorflow.python.keras.layers import Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, BatchNormalization, PReLU, Conv3DTranspose
+from tensorflow.python.keras.optimizers import Adam
 
 from unet3d.metrics import dice_coefficient_loss, get_label_dice_coefficient_function, dice_coefficient
 
 K.set_image_data_format("channels_first")
 
 try:
-    from keras.engine import merge
+    from tensorflow.python.keras.engine import merge
 except ImportError:
-    from keras.layers.merge import concatenate
+    from tensorflow.python.keras.layers import concatenate
 
 
 def unet_model_3d(input_shape, pool_size=(2, 2, 2), n_labels=1, initial_learning_rate=0.00001, deconvolution=False,
@@ -100,7 +100,8 @@ def create_convolution_block(input_layer, n_filters, batch_normalization=False, 
         layer = BatchNormalization(axis=1)(layer)
     elif instance_normalization:
         try:
-            from keras_contrib.layers.normalization import InstanceNormalization
+            #from tensorflow.python.keras_contrib.layers.normalization import InstanceNormalization
+            from unet3d.model.instancenorm import InstanceNormalization
         except ImportError:
             raise ImportError("Install keras_contrib in order to use instance normalization."
                               "\nTry: pip install git+https://www.github.com/farizrahman4u/keras-contrib.git")
@@ -113,13 +114,13 @@ def create_convolution_block(input_layer, n_filters, batch_normalization=False, 
 
 def compute_level_output_shape(n_filters, depth, pool_size, image_shape):
     """
-    Each level has a particular output shape based on the number of filters used in that level and the depth or number 
+    Each level has a particular output shape based on the number of filters used in that level and the depth or number
     of max pooling operations that have been done on the data at that point.
     :param image_shape: shape of the 3d image.
     :param pool_size: the pool_size parameter used in the max pooling operation.
     :param n_filters: Number of filters used by the last node in a given level.
     :param depth: The number of levels down in the U-shaped model a given node is.
-    :return: 5D vector of the shape of the output node 
+    :return: 5D vector of the shape of the output node
     """
     output_image_shape = np.asarray(np.divide(image_shape, np.power(pool_size, depth)), dtype=np.int32).tolist()
     return tuple([None, n_filters] + output_image_shape)

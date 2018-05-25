@@ -1,8 +1,8 @@
 from functools import partial
 
-from keras.layers import Input, LeakyReLU, Add, UpSampling3D, Activation, SpatialDropout3D
-from keras.engine import Model
-from keras.optimizers import Adam
+from tensorflow.python.keras.layers import Input, LeakyReLU, Add, UpSampling3D, Activation, SpatialDropout3D
+from tensorflow.python.keras.models import Model
+from tensorflow.python.keras.optimizers import Adam
 
 from .unet import create_convolution_block, concatenate
 from ..metrics import weighted_dice_coefficient_loss
@@ -98,6 +98,3 @@ def create_context_module(input_layer, n_level_filters, dropout_rate=0.3, data_f
     dropout = SpatialDropout3D(rate=dropout_rate, data_format=data_format)(convolution1)
     convolution2 = create_convolution_block(input_layer=dropout, n_filters=n_level_filters)
     return convolution2
-
-
-
