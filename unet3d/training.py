@@ -12,6 +12,7 @@ from tensorflow.contrib.lms import LMSKerasCallback
 # Set tf logging to INFO for LMS messages
 import tensorflow as tf
 tf.logging.set_verbosity(tf.logging.INFO)
+import sys
 
 # In newer versions of Keras this is now set in ~/.keras/keras.json as:
 # "image_dim_ordering": "tf"
@@ -38,13 +39,23 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
     if early_stopping_patience:
         callbacks.append(EarlyStopping(verbose=verbosity, patience=early_stopping_patience))
 
+    n_tensors = -1
+    lb = -1
+    bt = 1
+    if len(sys.argv) > 1:
+        n_tensors = int(sys.argv[1])
+        lb = int(sys.argv[2])
+        bt = int(sys.argv[3])
+    print('TF-LMS command line parameters:')
+    print('n_tensors: %s' % str(n_tensors))
+    print('lb: %s' % str(lb))
+    print('branch_threshold: %s' % str(bt))
     lms = LMSKerasCallback(starting_op_names={'input_1', 'conv3d/kernel/read'},
-                           n_tensors=100,
-                           lb=5,
-                           branch_threshold=100,
-                           swap_branches=True,
-                           )
-    callbacks.append(lms)
+                           n_tensors=n_tensors,
+                           lb=lb,
+                           branch_threshold=bt,
+                           swap_branches=True)
+      callbacks.append(lms)
 
     return callbacks
 
