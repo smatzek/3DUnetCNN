@@ -137,7 +137,10 @@ Keep in mind, though, that a smaller patch sizes may not perform as well as larg
 
 ## Large Model Support tuning
 You can modify the Large Model Support (LMS) tuning by passing command line
-parameters.  For example: python train_isensee2017.py <n_tensors> <lb> <branch_threshold>
+parameters.  For example:
+```
+python train_isensee2017.py <n_tensors> <lb> <branch_threshold>
+```
 
 ## Using this code on other 3D datasets
 If you want to train a 3D UNet on a different set of data, you can copy either the [train.py](brats/train.py) or the
