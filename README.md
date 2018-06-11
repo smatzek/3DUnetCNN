@@ -136,8 +136,8 @@ out of memory, you could also try changing the patch size to ```(32, 32, 32)```.
 Keep in mind, though, that a smaller patch sizes may not perform as well as larger patch sizes.
 
 ## Large Model Support tuning
-You can modify the Large Model Support (LMS) tuning by modifying the parameters
-in [LMSKeras.py](unet3d/utils/LMSKeras.py).
+You can modify the Large Model Support (LMS) tuning by passing command line
+parameters.  For example: python train_isensee2017.py <n_tensors> <lb> <branch_threshold>
 
 ## Using this code on other 3D datasets
 If you want to train a 3D UNet on a different set of data, you can copy either the [train.py](brats/train.py) or the
