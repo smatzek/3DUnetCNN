@@ -55,7 +55,7 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
                            lb=lb,
                            branch_threshold=bt,
                            swap_branches=True)
-      callbacks.append(lms)
+    callbacks.append(lms)
 
     return callbacks
 
