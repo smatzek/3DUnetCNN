@@ -40,7 +40,7 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
         callbacks.append(EarlyStopping(verbose=verbosity, patience=early_stopping_patience))
 
     n_tensors = -1
-    lb = -1
+    lb = 1
     bt = 1
     if len(sys.argv) > 1:
         n_tensors = int(sys.argv[1])
