@@ -2,6 +2,7 @@ import numpy as np
 import nibabel as nib
 import os
 import glob
+import sys
 import pandas as pd
 import matplotlib
 matplotlib.use('agg')
@@ -29,7 +30,11 @@ def main():
     masking_functions = (get_whole_tumor_mask, get_tumor_core_mask, get_enhancing_tumor_mask)
     rows = list()
     subject_ids = list()
-    for case_folder in glob.glob("prediction/*"):
+    prediction_dir = 'prediction'
+    if len(sys.argv) > 1:
+        prediction_dir = sys.argv[1]
+
+    for case_folder in glob.glob("%s/*" % prediction_dir):
         if not os.path.isdir(case_folder):
             continue
         subject_ids.append(os.path.basename(case_folder))
@@ -42,7 +47,7 @@ def main():
         rows.append([dice_coefficient(func(truth), func(prediction))for func in masking_functions])
 
     df = pd.DataFrame.from_records(rows, columns=header, index=subject_ids)
-    df.to_csv("./prediction/brats_scores.csv")
+    df.to_csv("./%s/brats_scores.csv" % prediction_dir)
 
     scores = dict()
     for index, score in enumerate(df.columns):
