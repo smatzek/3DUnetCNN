@@ -30,7 +30,7 @@ import nibabel as nib
 from unet3d.utils.utils import resize
 
 def main():
-    if len(sys.argv) < 1:
+    if len(sys.argv) < 2:
         print('Usage: <target_size> <source_dir> <target_dir>')
         print('Example: 192 prediction prediction192')
 
