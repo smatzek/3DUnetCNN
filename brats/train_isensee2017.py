@@ -6,6 +6,18 @@ from unet3d.generator import get_training_and_validation_generators
 from unet3d.model import isensee2017_model
 from unet3d.training import load_old_model, train_model
 
+def config_memory_optimizer():
+    # Set config for memory optimizer
+    import tensorflow as tf
+    from tensorflow.core.protobuf import rewriter_config_pb2
+    from tensorflow.python.keras.backend import set_session
+    config = tf.ConfigProto()
+    config.graph_options.rewrite_options.memory_optimization  = rewriter_config_pb2.RewriterConfig.SCHEDULING_HEURISTICS
+    sess = tf.Session(config=config)
+    set_session(sess)  # set this TensorFlow session as the default session for Keras
+
+# This is needed on non-PowerAI builds of TensorFlow.
+#config_memory_optimizer()
 
 config = dict()
 config["image_shape"] = (128, 128, 128)  # This determines what shape the images will be cropped/resampled to.
