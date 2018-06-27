@@ -49,7 +49,7 @@ def main():
                                    "prediction.nii.gz")
         print('Processing %s' % truth_file)
         image = nib.load(truth_file)
-        new_img = resize(image, target_shape)
+        new_img = resize(image, target_shape, interpolation="nearest")
         new_img.to_filename(target_file)
 
 if __name__ == "__main__":
