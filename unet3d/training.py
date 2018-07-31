@@ -50,7 +50,7 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
     print('n_tensors: %s' % str(n_tensors))
     print('lb: %s' % str(lb))
     print('branch_threshold: %s' % str(bt))
-    lms = LMSKerasCallback(starting_op_names={'input_1', 'conv3d/kernel/read'},
+    lms = LMSKerasCallback(starting_op_names={'input_1'},
                            n_tensors=n_tensors,
                            lb=lb,
                            branch_threshold=bt,
