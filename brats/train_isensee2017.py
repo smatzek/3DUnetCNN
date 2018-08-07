@@ -1,3 +1,4 @@
+import argparse
 import os
 import glob
 
@@ -6,6 +7,7 @@ from unet3d.generator import get_training_and_validation_generators
 from unet3d.model import isensee2017_model
 from unet3d.training import load_old_model, train_model
 
+FLAGS = None
 def config_memory_optimizer():
     # Set config for memory optimizer
     import tensorflow as tf
@@ -19,6 +21,13 @@ def config_memory_optimizer():
 # This is needed on non-PowerAI builds of TensorFlow.
 #config_memory_optimizer()
 
+def setup_input_shape():
+    if "patch_shape" in config and config["patch_shape"] is not None:
+        config["input_shape"] = tuple([config["nb_channels"]] + list(config["patch_shape"]))
+    else:
+        config["input_shape"] = tuple([config["nb_channels"]] + list(config["image_shape"]))
+
+
 config = dict()
 config["image_shape"] = (128, 128, 128)  # This determines what shape the images will be cropped/resampled to.
 config["patch_shape"] = None  # switch to None to train on the whole image
@@ -28,10 +37,7 @@ config["n_labels"] = len(config["labels"])
 config["all_modalities"] = ["t1", "t1Gd", "flair", "t2"]
 config["training_modalities"] = config["all_modalities"]  # change this if you want to only use some of the modalities
 config["nb_channels"] = len(config["training_modalities"])
-if "patch_shape" in config and config["patch_shape"] is not None:
-    config["input_shape"] = tuple([config["nb_channels"]] + list(config["patch_shape"]))
-else:
-    config["input_shape"] = tuple([config["nb_channels"]] + list(config["image_shape"]))
+setup_input_shape()
 config["truth_channel"] = config["nb_channels"]
 config["deconvolution"] = True  # if False, will use upsampling instead of deconvolution
 
@@ -121,9 +127,42 @@ def main(overwrite=False):
                 learning_rate_drop=config["learning_rate_drop"],
                 learning_rate_patience=config["patience"],
                 early_stopping_patience=config["early_stop"],
-                n_epochs=config["n_epochs"])
+                n_epochs=config["n_epochs"],
+                lms_n_tensors=FLAGS.lms_n_tensors,
+                lms_lb=FLAGS.lms_lb,
+                lms_branch_threshold=FLAGS.lms_branch_threshold)
     data_file_opened.close()
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--epochs', type=int,
+                      default=500,
+                      help='Number of epochs to run. (Early stopping still '
+                           'applies.) This parameter is useful for measuring '
+                           'epoch times by running a few epochs rather than '
+                           'a full training run to convergence.')
+    parser.add_argument('--image_size', type=int,
+                      default=144,
+                      help='One dimension of the cubic size of the image. For '
+                           'example for 192^3, pass 192.')
+    parser.add_argument('--data_file_path', type=str,
+                      default='brats_data.h5',
+                      help='Path to the h5 data file containing training and '
+                           'validation subjects.')
+    parser.add_argument('--lms_n_tensors', type=int,
+                      default=0,
+                      help='Number of tensors to swap with LMS. Default is 0.')
+    parser.add_argument('--lms_lb', type=int,
+                      default=1,
+                      help='Lower bound for LMS swap in')
+    parser.add_argument('--lms_branch_threshold', type=int,
+                      default=1,
+                      help='Threshold for LMS branch swapping.')
+    FLAGS = parser.parse_args()
+    config['n_epochs'] = FLAGS.epochs
+    config['image_shape'] = (FLAGS.image_size, FLAGS.image_size, FLAGS.image_size)
+    setup_input_shape()
+    config['data_file'] = FLAGS.data_file_path
+
     main(overwrite=config["overwrite"])

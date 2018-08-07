@@ -26,7 +26,7 @@ def step_decay(epoch, initial_lrate, drop, epochs_drop):
 
 def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0.5, learning_rate_epochs=None,
                   learning_rate_patience=50, logging_file="training.log", verbosity=1,
-                  early_stopping_patience=None):
+                  early_stopping_patience=None, lms_n_tensors=0, lms_lb=1, lms_branch_threshold=1):
     callbacks = list()
     callbacks.append(ModelCheckpoint(model_file, save_best_only=True))
     callbacks.append(CSVLogger(logging_file, append=True))
@@ -39,21 +39,10 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
     if early_stopping_patience:
         callbacks.append(EarlyStopping(verbose=verbosity, patience=early_stopping_patience))
 
-    n_tensors = -1
-    lb = 1
-    bt = 1
-    if len(sys.argv) > 1:
-        n_tensors = int(sys.argv[1])
-        lb = int(sys.argv[2])
-        bt = int(sys.argv[3])
-    print('TF-LMS command line parameters:')
-    print('n_tensors: %s' % str(n_tensors))
-    print('lb: %s' % str(lb))
-    print('branch_threshold: %s' % str(bt))
-    lms = LMSKerasCallback(starting_op_names={'input_1'},
-                           n_tensors=n_tensors,
-                           lb=lb,
-                           branch_threshold=bt,
+    lms = LMSKerasCallback(starting_op_names={'input_1',},
+                           n_tensors=lms_n_tensors,
+                           lb=lms_lb,
+                           branch_threshold=lms_branch_threshold,
                            swap_branches=True)
     callbacks.append(lms)
 
@@ -83,7 +72,8 @@ def load_old_model(model_file):
 
 def train_model(model, model_file, training_generator, validation_generator, steps_per_epoch, validation_steps,
                 initial_learning_rate=0.001, learning_rate_drop=0.5, learning_rate_epochs=None, n_epochs=500,
-                learning_rate_patience=20, early_stopping_patience=None):
+                learning_rate_patience=20, early_stopping_patience=None, lms_n_tensors=0, lms_lb=1,
+                lms_branch_threshold=1):
     """
     Train a Keras model.
     :param early_stopping_patience: If set, training will end early if the validation loss does not improve after the
@@ -112,4 +102,7 @@ def train_model(model, model_file, training_generator, validation_generator, ste
                                                 learning_rate_drop=learning_rate_drop,
                                                 learning_rate_epochs=learning_rate_epochs,
                                                 learning_rate_patience=learning_rate_patience,
-                                                early_stopping_patience=early_stopping_patience))
+                                                early_stopping_patience=early_stopping_patience,
+                                                lms_n_tensors=lms_n_tensors,
+                                                lms_lb=lms_lb,
+                                                lms_branch_threshold=lms_branch_threshold))
