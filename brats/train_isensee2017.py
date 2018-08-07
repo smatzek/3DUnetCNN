@@ -1,11 +1,15 @@
 import argparse
 import os
 import glob
+import sys
 
 from unet3d.data import write_data_to_file, open_data_file
 from unet3d.generator import get_training_and_validation_generators
 from unet3d.model import isensee2017_model
 from unet3d.training import load_old_model, train_model
+
+if "OMPI_COMM_WORLD_LOCAL_RANK" in os.environ:
+  import ddl
 
 FLAGS = None
 def config_memory_optimizer():
@@ -46,7 +50,10 @@ config["validation_batch_size"] = 2
 config["n_epochs"] = 500  # cutoff the training after this many epochs
 config["patience"] = 10  # learning rate will be reduced after this many epochs if the validation loss is not improving
 config["early_stop"] = 50  # training will be stopped after this many epochs without the validation loss improving
-config["initial_learning_rate"] = 5e-4
+if 'ddl' in sys.modules:
+  config["initial_learning_rate"] = 5e-4 * ddl.size()
+else:
+  config["initial_learning_rate"] = 5e-4
 config["learning_rate_drop"] = 0.5  # factor by which the learning rate will be reduced
 config["validation_split"] = 0.8  # portion of the data that will be used for training
 config["flip"] = False  # augments the data by randomly flipping an axis during

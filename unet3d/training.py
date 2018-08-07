@@ -13,7 +13,9 @@ from tensorflow.contrib.lms import LMSKerasCallback
 import tensorflow as tf
 tf.logging.set_verbosity(tf.logging.INFO)
 import sys
-
+import os
+if "OMPI_COMM_WORLD_LOCAL_RANK" in os.environ:
+  import ddl
 # In newer versions of Keras this is now set in ~/.keras/keras.json as:
 # "image_dim_ordering": "tf"
 # K.set_image_dim_ordering('th')
@@ -28,8 +30,11 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
                   learning_rate_patience=50, logging_file="training.log", verbosity=1,
                   early_stopping_patience=None, lms_n_tensors=0, lms_lb=1, lms_branch_threshold=1):
     callbacks = list()
-    callbacks.append(ModelCheckpoint(model_file, save_best_only=True))
-    callbacks.append(CSVLogger(logging_file, append=True))
+    if 'ddl' in sys.modules:
+      callbacks.append(ddl.DDLCallback())
+    if 'ddl' not in sys.modules or ddl.rank() == 0:
+      callbacks.append(ModelCheckpoint(model_file, save_best_only=True))
+      callbacks.append(CSVLogger(logging_file, append=True))
     if learning_rate_epochs:
         callbacks.append(LearningRateScheduler(partial(step_decay, initial_lrate=initial_learning_rate,
                                                        drop=learning_rate_drop, epochs_drop=learning_rate_epochs)))
@@ -45,6 +50,8 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
                            branch_threshold=lms_branch_threshold,
                            swap_branches=True)
     callbacks.append(lms)
+    if 'ddl' in sys.modules:
+      callbacks.append(ddl.DDLGlobalVariablesCallback())
 
     return callbacks
 
@@ -93,6 +100,7 @@ def train_model(model, model_file, training_generator, validation_generator, ste
     :return:
     """
     model.fit_generator(generator=training_generator,
+                        verbose=1 if 'ddl' not in sys.modules or ddl.rank() == 0 else 0,
                         steps_per_epoch=steps_per_epoch,
                         epochs=n_epochs,
                         validation_data=validation_generator,
