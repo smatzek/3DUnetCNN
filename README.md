@@ -1,4 +1,17 @@
 # 3D U-Net Convolution Neural Network with Keras
+
+## Overview of tflms_ddl branch
+The changes in the tflms_ddl branch are generally consist of these items:
+1. Changes to the model to use tf.keras from TensorFlow and were originally
+made for use with TensorFlow 1.8.
+2. Changes to use optionally use TensorFlow Large Model Support in from
+TensorFlow in IBM PowerAI and available at [TensorFlow
+pull request 19845](https://github.com/tensorflow/tensorflow/pull/19845).
+3. Changes to allow command line specification of TensorFlow Large Model
+Support tuning parameters to train_isensee2017.py.
+4. Changes to optionally allow training the model in a multi-GPU distributed
+fashion using IBM Distributed Deep Learning.
+
 ![Tumor Segmentation Example](doc/tumor_segmentation_illusatration.gif)
 ## Background
 Originally designed after [this paper](http://lmb.informatik.uni-freiburg.de/Publications/2016/CABR16/cicek16miccai.pdf) on
