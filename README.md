@@ -9,13 +9,12 @@ be easily modified to be used in other 3D applications.
 
 ## Tutorial using BRATS Data
 ### Training
-1. Download the BRATS 2017 [GBM](https://app.box.com/shared/static/bpqo6uqmqinke5jkyhbik9va2uq8ky01.zip) and
-[LGG](https://app.box.com/shared/static/pqkmy3zcvud2qxlx5poe458azb1dzj54.zip) data. Place the unzipped folders in the
+1. Download the BRATS 2017 [GBM](https://app.box.com/shared/static/l5zoa0bjp1pigpgcgakup83pzadm6wxs.zip) and
+[LGG](https://app.box.com/shared/static/x75fzof83mmomea2yy9kshzj3tr9zni3.zip) data. Place the unzipped folders in the
 ```brats/data/original``` folder.
 2. Install dependencies:
 ```
 nibabel,
-keras,
 pytables,
 nilearn,
 SimpleITK,
@@ -42,10 +41,11 @@ $ python
 >>> from preprocess import convert_brats_data
 >>> convert_brats_data("data/original", "data/preprocessed")
 ```
-Note: This can take a while.  By default the preprocessing will process one
-file at a time. You can modify the thread count in preprocess.py to multithread
-this. On a server with 32 cores and SMT enabled you could easily set this to
-30 or 60 and greatly reduce your preprocessing time.
+Note: This may take days. By default the preprocessing will process one
+subject at a time. You can modify the thread count variable
+`NUM_FOLDER_PROCESS_THREADS` in preprocess.py to multithread
+this. On an IBM AC922 server you can set this to 120 threads. The preprocessing
+will take 100% of the CPU and will finish in under two hours.
 
 6. Run the training:
 
@@ -135,11 +135,23 @@ If the batch size is reduced down to 1 and it still you are still running
 out of memory, you could also try changing the patch size to ```(32, 32, 32)```.
 Keep in mind, though, that a smaller patch sizes may not perform as well as larger patch sizes.
 
-## Large Model Support tuning
-You can modify the Large Model Support (LMS) tuning by passing command line
-parameters.  For example:
+## TensorFlow Large Model Support
+### TensorFlow Builds
+The TensorFlow Large Model Support integration is written assuming the use of
+the TensorFlow build included in IBM PowerAI which includes [TensorFlow
+pull request 19845](https://github.com/tensorflow/tensorflow/pull/19845). The
+model can also be used with non-IBM PowerAI TensorFlow builds. To run
+without IBM PowerAI, the pull request Python changes should be placed in the
+TensorFlow module and the `config_memory_optimizer()` call should be uncommented
+in [train_isensee2017.py](brats/train_isensee2017.py). Note that the
+memory_optimizer.cc changes from the pull request are not needed if you
+uncomment the call to  `config_memory_optimizer()`.
+
+### TensorFlow Large Model Support tuning
+You can modify the TensorFlow Large Model Support (TFLMS) tuning by passing command line
+parameters. See the training usage for more information:
 ```
-python train_isensee2017.py <n_tensors> <lb> <branch_threshold>
+python train_isensee2017.py --help
 ```
 
 ## Using this code on other 3D datasets

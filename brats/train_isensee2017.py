@@ -159,13 +159,13 @@ if __name__ == "__main__":
                            'validation subjects.')
     parser.add_argument('--lms_n_tensors', type=int,
                       default=0,
-                      help='Number of tensors to swap with LMS. Default is 0.')
+                      help='Number of tensors to swap with LMS. Default is 0. (TFLMS off)')
     parser.add_argument('--lms_lb', type=int,
                       default=1,
-                      help='Lower bound for LMS swap in')
+                      help='Lower bound for LMS swap in. Default is 1.')
     parser.add_argument('--lms_branch_threshold', type=int,
                       default=1,
-                      help='Threshold for LMS branch swapping.')
+                      help='Threshold for LMS branch swapping. Default is 1 (on).')
     FLAGS = parser.parse_args()
     config['n_epochs'] = FLAGS.epochs
     config['image_shape'] = (FLAGS.image_size, FLAGS.image_size, FLAGS.image_size)
