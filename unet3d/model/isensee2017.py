@@ -1,3 +1,14 @@
+import os
+dist_mod = None
+if "USE_HOROVOD_3DUNET" in os.environ:
+    import sys
+    import tensorflow as tf
+    import horovod.keras as hvd
+    dist_mod = hvd
+# In newer versions of Keras this is now set in ~/.keras/keras.json as:
+# "image_dim_ordering": "tf"
+# K.set_image_dim_ordering('th')
+
 from functools import partial
 
 from tensorflow.python.keras.layers import Input, LeakyReLU, Add, UpSampling3D, Activation, SpatialDropout3D
@@ -77,7 +88,14 @@ def isensee2017_model(input_shape=(4, 128, 128, 128), n_base_filters=16, depth=5
     activation_block = Activation(activation_name)(output_layer)
 
     model = Model(inputs=inputs, outputs=activation_block)
-    model.compile(optimizer=optimizer(lr=initial_learning_rate), loss=loss_function)
+
+    opt = optimizer(lr=initial_learning_rate)
+
+    if dist_mod:
+      # Horovod: add Horovod Distributed Optimizer.
+      opt = dist_mod.DistributedOptimizer(opt)
+
+    model.compile(optimizer=opt, loss=loss_function)
     return model
 
 
