@@ -10,8 +10,18 @@ from .utils import pickle_dump, pickle_load
 from .utils.patches import compute_patch_indices, get_random_nd_index, get_patch_from_3d_data
 from .augment import augment_data, random_permutation_x_y
 
-if "OMPI_COMM_WORLD_LOCAL_RANK" in os.environ:
+# The distribution module
+dist_mod = None
+if "DDL_OPTIONS" in os.environ:
   import ddl
+  dist_mod = ddl
+
+if "USE_HOROVOD_3DUNET" in os.environ:
+  import horovod.keras as hvd
+  dist_mod = hvd
+# In newer versions of Keras this is now set in ~/.keras/keras.json as:
+# "image_dim_ordering": "tf"
+# K.set_image_dim_ordering('th')
 
 def get_training_and_validation_generators(data_file, batch_size, n_labels, training_keys_file, validation_keys_file,
                                            data_split=0.8, overwrite=False, labels=None, augment=False,
@@ -59,9 +69,9 @@ def get_training_and_validation_generators(data_file, batch_size, n_labels, trai
                                                           training_file=training_keys_file,
                                                           validation_file=validation_keys_file)
 
-    if 'ddl' in sys.modules:
-      training_lists = [training_list[i::ddl.size()] for i in range(ddl.size())]
-      training_list = training_lists[ddl.rank()]
+    if dist_mod:
+      training_lists = [training_list[i::dist_mod.size()] for i in range(dist_mod.size())]
+      training_list = training_lists[dist_mod.rank()]
     training_generator = data_generator(data_file, training_list,
                                         batch_size=batch_size,
                                         n_labels=n_labels,
@@ -74,10 +84,10 @@ def get_training_and_validation_generators(data_file, batch_size, n_labels, trai
                                         patch_start_offset=training_patch_start_offset,
                                         skip_blank=skip_blank,
                                         permute=permute)
-    
-    if 'ddl' in sys.modules:
-      validation_lists = [validation_list[i::ddl.size()] for i in range(ddl.size())]
-      validation_list = validation_lists[ddl.rank()]
+
+    if dist_mod:
+      validation_lists = [validation_list[i::dist_mod.size()] for i in range(dist_mod.size())]
+      validation_list = validation_lists[dist_mod.rank()]
     validation_generator = data_generator(data_file, validation_list,
                                           batch_size=validation_batch_size,
                                           n_labels=n_labels,
@@ -87,11 +97,11 @@ def get_training_and_validation_generators(data_file, batch_size, n_labels, trai
                                           skip_blank=skip_blank)
 
     # Set the number of training and testing samples per epoch correctly
-    if 'ddl' in sys.modules:
+    if dist_mod:
       num_training_steps = max([get_number_of_steps(get_number_of_patches(data_file, training_lists[i], patch_shape,
                                                                           skip_blank=skip_blank,
                                                                           patch_start_offset=training_patch_start_offset,
-                                                                          patch_overlap=0), batch_size) for i in range(ddl.size())])
+                                                                          patch_overlap=0), batch_size) for i in range(dist_mod.size())])
     else:
       num_training_steps = get_number_of_steps(get_number_of_patches(data_file, training_list, patch_shape,
                                                                      skip_blank=skip_blank,
@@ -132,7 +142,7 @@ def get_validation_split(data_file, training_file, validation_file, data_split=0
         nb_samples = data_file.root.data.shape[0]
         sample_list = list(range(nb_samples))
         training_list, validation_list = split_list(sample_list, split=data_split)
-        if 'ddl' not in sys.modules or ddl.rank() == 0:
+        if not dist_mod or dist_mod.rank() == 0:
             pickle_dump(training_list, training_file)
             pickle_dump(validation_list, validation_file)
         return training_list, validation_list

@@ -1,26 +1,46 @@
 import argparse
 import os
 import glob
-import sys
 
 from unet3d.data import write_data_to_file, open_data_file
 from unet3d.generator import get_training_and_validation_generators
 from unet3d.model import isensee2017_model
 from unet3d.training import load_old_model, train_model
 
-if "OMPI_COMM_WORLD_LOCAL_RANK" in os.environ:
+
+dist_mod = None
+if "DDL_OPTIONS" in os.environ:
   import ddl
+  dist_mod = ddl
+
+if "USE_HOROVOD_3DUNET" in os.environ:
+  import tensorflow as tf
+  from tensorflow.core.protobuf import rewriter_config_pb2
+  from tensorflow.python.keras import backend as K
+  import horovod.keras as hvd
+  dist_mod = hvd
+  # Initialize Horovod
+  hvd.init()
+
+  # Pin GPU to be used to process local rank (one GPU per process)
+  print ("*****Horovod local rank = ", hvd.local_rank(), "*****")
+  config = tf.ConfigProto()
+  # The below config is needed on non-PowerAI builds of TensorFlow.
+  config.graph_options.rewrite_options.memory_optimization  = rewriter_config_pb2.RewriterConfig.SCHEDULING_HEURISTICS
+  config.gpu_options.allow_growth = True
+  config.gpu_options.visible_device_list = str(hvd.local_rank())
+  K.set_session(tf.Session(config=config))
+
 
 FLAGS = None
 def config_memory_optimizer():
     # Set config for memory optimizer
     import tensorflow as tf
     from tensorflow.core.protobuf import rewriter_config_pb2
-    from tensorflow.python.keras.backend import set_session
+    from tensorflow.python.keras import backend as K
     config = tf.ConfigProto()
     config.graph_options.rewrite_options.memory_optimization  = rewriter_config_pb2.RewriterConfig.SCHEDULING_HEURISTICS
-    sess = tf.Session(config=config)
-    set_session(sess)  # set this TensorFlow session as the default session for Keras
+    K.set_session(tf.Session(config=config))
 
 # This is needed on non-PowerAI builds of TensorFlow.
 #config_memory_optimizer()
@@ -50,8 +70,8 @@ config["validation_batch_size"] = 2
 config["n_epochs"] = 500  # cutoff the training after this many epochs
 config["patience"] = 10  # learning rate will be reduced after this many epochs if the validation loss is not improving
 config["early_stop"] = 50  # training will be stopped after this many epochs without the validation loss improving
-if 'ddl' in sys.modules:
-  config["initial_learning_rate"] = 5e-4 * ddl.size()
+if dist_mod:
+  config["initial_learning_rate"] = 5e-4 * dist_mod.size()
 else:
   config["initial_learning_rate"] = 5e-4
 config["learning_rate_drop"] = 0.5  # factor by which the learning rate will be reduced
