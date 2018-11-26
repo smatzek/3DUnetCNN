@@ -7,6 +7,9 @@ from tensorflow.python.keras.models import load_model
 
 from unet3d.metrics import (dice_coefficient, dice_coefficient_loss, dice_coef, dice_coef_loss,
                             weighted_dice_coefficient_loss, weighted_dice_coefficient)
+from tensorflow.python.keras.callbacks import Callback
+import ctypes
+_cudart = ctypes.CDLL('libcudart.so')
 
 from tensorflow.contrib.lms import LMSKerasCallback
 # Set tf logging to INFO for LMS messages
@@ -41,7 +44,9 @@ def step_decay(epoch, initial_lrate, drop, epochs_drop):
 
 def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0.5, learning_rate_epochs=None,
                   learning_rate_patience=50, logging_file="training.log", verbosity=1,
-                  early_stopping_patience=None, lms_n_tensors=0, lms_lb=1, lms_branch_threshold=1):
+                  early_stopping_patience=None, lms_n_tensors=0, lms_lb=1, lms_branch_threshold=1,
+                  cuda_profile_epoch=0, cuda_profile_batch_start=0,
+                  cuda_profile_batch_end=0):
     callbacks = list()
     if dist_mech is 'ddl':
       callbacks.append(ddl.DDLCallback())
@@ -72,6 +77,11 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
       #print("************horovod callback added***************")
       callbacks.append(hvd.callbacks.BroadcastGlobalVariablesCallback(0))
 
+    if cuda_profile_epoch:
+        callbacks.append(CudaProfileCallback(cuda_profile_epoch,
+                                             cuda_profile_batch_start,
+                                             cuda_profile_batch_end))
+
     return callbacks
 
 
@@ -99,7 +109,9 @@ def load_old_model(model_file):
 def train_model(model, model_file, training_generator, validation_generator, steps_per_epoch, validation_steps,
                 initial_learning_rate=0.001, learning_rate_drop=0.5, learning_rate_epochs=None, n_epochs=500,
                 learning_rate_patience=20, early_stopping_patience=None, lms_n_tensors=0, lms_lb=1,
-                lms_branch_threshold=1):
+                lms_branch_threshold=1, cuda_profile_epoch=0,
+                cuda_profile_batch_start=0,
+                cuda_profile_batch_end=0):
     """
     Train a Keras model.
     :param early_stopping_patience: If set, training will end early if the validation loss does not improve after the
@@ -132,4 +144,27 @@ def train_model(model, model_file, training_generator, validation_generator, ste
                                                 early_stopping_patience=early_stopping_patience,
                                                 lms_n_tensors=lms_n_tensors,
                                                 lms_lb=lms_lb,
-                                                lms_branch_threshold=lms_branch_threshold))
+                                                lms_branch_threshold=lms_branch_threshold,
+                                                cuda_profile_epoch=cuda_profile_epoch,
+                                                cuda_profile_batch_start=cuda_profile_batch_start,
+                                                cuda_profile_batch_end=cuda_profile_batch_end))
+
+class CudaProfileCallback(Callback):
+    def __init__(self, profile_epoch, profile_batch_start, profile_batch_end):
+        self._epoch = profile_epoch - 1
+        self._start = profile_batch_start
+        self._end = profile_batch_end
+        self.epoch_keeper = 0
+    def on_epoch_begin(self, epoch, logs=None):
+        self.epoch_keeper = epoch
+    def on_batch_begin(self, batch, logs=None):
+        if batch == self._start and self.epoch_keeper == self._epoch:
+            print('Starting cuda profiler')
+            ret = _cudart.cudaProfilerStart()
+            if ret != 0:
+              raise Exception("cudaProfilerStart() returned %d" % ret)
+        if batch == self._end and self.epoch_keeper == self._epoch:
+            print('Stopping cuda profiler')
+            ret = _cudart.cudaProfilerStop()
+            if ret != 0:
+              raise Exception("cudaProfilerStop() returned %d" % ret)

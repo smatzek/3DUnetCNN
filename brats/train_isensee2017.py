@@ -1,6 +1,8 @@
 import argparse
 import os
 import glob
+import random
+import string
 
 from unet3d.data import write_data_to_file, open_data_file
 from unet3d.generator import get_training_and_validation_generators
@@ -143,6 +145,10 @@ def main(overwrite=False):
         augment_flip=config["flip"],
         augment_distortion_factor=config["distort"])
 
+    if FLAGS.steps_per_epoch:
+        n_train_steps = FLAGS.steps_per_epoch
+    if FLAGS.validation_steps:
+        n_validation_steps = FLAGS.validation_steps
     # run training
     train_model(model=model,
                 model_file=config["model_file"],
@@ -157,7 +163,10 @@ def main(overwrite=False):
                 n_epochs=config["n_epochs"],
                 lms_n_tensors=FLAGS.lms_n_tensors,
                 lms_lb=FLAGS.lms_lb,
-                lms_branch_threshold=FLAGS.lms_branch_threshold)
+                lms_branch_threshold=FLAGS.lms_branch_threshold,
+                cuda_profile_epoch=FLAGS.cuda_profile_epoch,
+                cuda_profile_batch_start=FLAGS.cuda_profile_batch_start,
+                cuda_profile_batch_end=FLAGS.cuda_profile_batch_end)
     data_file_opened.close()
 
 
@@ -186,10 +195,46 @@ if __name__ == "__main__":
     parser.add_argument('--lms_branch_threshold', type=int,
                       default=1,
                       help='Threshold for LMS branch swapping. Default is 1 (on).')
+    parser.add_argument('--steps_per_epoch', type=int,
+                      default=0,
+                      help='An override for the number of steps to run in an '
+                           'epoch. This is useful when performance profiling '
+                           'large resolutions to shorten runtimes. The default '
+                           'behavior is to use the number of subjects and '
+                           'batch size to calculate the correct number of '
+                           'steps.')
+    parser.add_argument('--validation_steps', type=int,
+                      default=0,
+                      help='An override for the number of validation steps to '
+                           'run in an epoch. This is useful when performance '
+                           'profiling large resolutions to shorten runtimes. '
+                           'The default is to use the default number of '
+                           'validation steps given the training/validation '
+                           'subject split.')
+    parser.add_argument('--randomize_model_name', type=bool,
+                      default=True,
+                      help='This will generate a random name for the model on '
+                           'each run. Default is True')
+    parser.add_argument('--cuda_profile_epoch', type=int,
+                      default=0,
+                      help='The epoch in which to start CUDA profiling '
+                           '(nvvp). Default is 0 (no profiling)')
+    parser.add_argument('--cuda_profile_batch_start', type=int,
+                      default=1,
+                      help='The batch in which to start CUDA profiling '
+                           '(nvvp). Default is 1.')
+    parser.add_argument('--cuda_profile_batch_end', type=int,
+                      default=2,
+                      help='The batch in which to end CUDA profiling '
+                           '(nvvp). Default is 2.')
     FLAGS = parser.parse_args()
     config['n_epochs'] = FLAGS.epochs
     config['image_shape'] = (FLAGS.image_size, FLAGS.image_size, FLAGS.image_size)
     setup_input_shape()
     config['data_file'] = FLAGS.data_file_path
+    if FLAGS.randomize_model_name:
+        random_part = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        config["model_file"] = os.path.abspath("isensee_2017_model_%s.h5" % random_part)
+        print('Generated model filename: %s' % config["model_file"])
 
     main(overwrite=config["overwrite"])
