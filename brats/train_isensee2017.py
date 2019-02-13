@@ -149,6 +149,7 @@ def main(overwrite=False):
         n_train_steps = FLAGS.steps_per_epoch
     if FLAGS.validation_steps:
         n_validation_steps = FLAGS.validation_steps
+
     # run training
     train_model(model=model,
                 model_file=config["model_file"],
@@ -161,9 +162,12 @@ def main(overwrite=False):
                 learning_rate_patience=config["patience"],
                 early_stopping_patience=config["early_stop"],
                 n_epochs=config["n_epochs"],
-                lms_n_tensors=FLAGS.lms_n_tensors,
-                lms_lb=FLAGS.lms_lb,
-                lms_branch_threshold=FLAGS.lms_branch_threshold,
+                lms=FLAGS.lms,
+                swapout_threshold=FLAGS.swapout_threshold,
+                swapin_groupby=FLAGS.swapin_groupby,
+                swapin_ahead=FLAGS.swapin_ahead,
+                serialization=FLAGS.serialization,
+                sync_mode=FLAGS.sync_mode,
                 cuda_profile_epoch=FLAGS.cuda_profile_epoch,
                 cuda_profile_batch_start=FLAGS.cuda_profile_batch_start,
                 cuda_profile_batch_end=FLAGS.cuda_profile_batch_end)
@@ -186,15 +190,36 @@ if __name__ == "__main__":
                       default='brats_data.h5',
                       help='Path to the h5 data file containing training and '
                            'validation subjects.')
-    parser.add_argument('--lms_n_tensors', type=int,
-                      default=0,
-                      help='Number of tensors to swap with LMS. Default is 0. (TFLMS off)')
-    parser.add_argument('--lms_lb', type=int,
-                      default=1,
-                      help='Lower bound for LMS swap in. Default is 1.')
-    parser.add_argument('--lms_branch_threshold', type=int,
-                      default=1,
-                      help='Threshold for LMS branch swapping. Default is 1 (on).')
+    # LMS parameters
+    lms_group = parser.add_mutually_exclusive_group(required=False)
+    lms_group.add_argument('--lms', dest='lms', action='store_true',
+                           help='Enable TFLMS')
+    lms_group.add_argument('--no-lms', dest='lms', action='store_false',
+                           help='Disable TFLMS (Default)')
+    parser.set_defaults(lms=False)
+    parser.add_argument("--swapout_threshold", type=int, default=-1,
+                        help='The TFLMS swapout_threshold parameter. See the '
+                             'TFLMS documentation for more information. '
+                             'Default `-1` (auto mode).')
+    parser.add_argument("--swapin_groupby", type=int, default=-1,
+                        help='The TFLMS swapin_groupby parameter. See the '
+                             'TFLMS documentation for more information. '
+                             'Default `-1` (auto mode).')
+    parser.add_argument("--swapin_ahead", type=int, default=-1,
+                        help='The TFLMS swapin_ahead parameter. See the '
+                             'TFLMS documentation for more information. '
+                             'Default `-1` (auto mode).')
+    parser.add_argument("--serialization", type=int, default=-1,
+                        help='The layer to start serialization on. This '
+                             'number will be passed to the LMS serialization '
+                             'parameter as the start of a slice like this: '
+                             '[\'parameter:\']. See the TFLMS documentation '
+                             'for more information. Default -1, no '
+                             'serialization.')
+    parser.add_argument("--sync_mode", type=int, default=0,
+                        help='Sync mode of TFLMS. See the TFLMS documentation '
+                             'for more information. Default: no '
+                             'synchronization.')
     parser.add_argument('--steps_per_epoch', type=int,
                       default=0,
                       help='An override for the number of steps to run in an '

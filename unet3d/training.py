@@ -11,7 +11,7 @@ from tensorflow.python.keras.callbacks import Callback
 import ctypes
 _cudart = ctypes.CDLL('libcudart.so')
 
-from tensorflow.contrib.lms import LMSKerasCallback
+from tensorflow_large_model_support import LMS
 # Set tf logging to INFO for LMS messages
 import tensorflow as tf
 tf.logging.set_verbosity(tf.logging.INFO)
@@ -44,7 +44,12 @@ def step_decay(epoch, initial_lrate, drop, epochs_drop):
 
 def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0.5, learning_rate_epochs=None,
                   learning_rate_patience=50, logging_file="training.log", verbosity=1,
-                  early_stopping_patience=None, lms_n_tensors=0, lms_lb=1, lms_branch_threshold=1,
+                  early_stopping_patience=None, lms=False,
+                  swapout_threshold=-1,
+                  swapin_groupby=-1,
+                  swapin_ahead=-1,
+                  serialization=-1,
+                  sync_mode=0,
                   cuda_profile_epoch=0, cuda_profile_batch_start=0,
                   cuda_profile_batch_end=0):
     callbacks = list()
@@ -62,12 +67,18 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
     if early_stopping_patience:
         callbacks.append(EarlyStopping(verbose=verbosity, patience=early_stopping_patience))
 
-    lms = LMSKerasCallback(starting_op_names={'input_1',},
-                           n_tensors=lms_n_tensors,
-                           lb=lms_lb,
-                           branch_threshold=lms_branch_threshold,
-                           swap_branches=True)
-    callbacks.append(lms)
+    if lms:
+        serialization_list = []
+        if serialization > 0:
+            serialization_list.append('%s:' % serialization)
+
+        lms_callback = LMS(swapout_threshold=swapout_threshold,
+                           swapin_groupby=swapin_groupby,
+                           swapin_ahead=swapin_ahead,
+                           sync_mode=sync_mode,
+                           serialization=serialization_list)
+        lms_callback.batch_size = 1
+        callbacks.append(lms_callback)
     if dist_mech is 'ddl':
       callbacks.append(ddl.DDLGlobalVariablesCallback())
     elif dist_mech is 'horovod':
@@ -108,8 +119,14 @@ def load_old_model(model_file):
 
 def train_model(model, model_file, training_generator, validation_generator, steps_per_epoch, validation_steps,
                 initial_learning_rate=0.001, learning_rate_drop=0.5, learning_rate_epochs=None, n_epochs=500,
-                learning_rate_patience=20, early_stopping_patience=None, lms_n_tensors=0, lms_lb=1,
-                lms_branch_threshold=1, cuda_profile_epoch=0,
+                learning_rate_patience=20, early_stopping_patience=None,
+                lms=False,
+                swapout_threshold=-1,
+                swapin_groupby=-1,
+                swapin_ahead=-1,
+                serialization=-1,
+                sync_mode=0,
+                cuda_profile_epoch=0,
                 cuda_profile_batch_start=0,
                 cuda_profile_batch_end=0):
     """
@@ -142,9 +159,12 @@ def train_model(model, model_file, training_generator, validation_generator, ste
                                                 learning_rate_epochs=learning_rate_epochs,
                                                 learning_rate_patience=learning_rate_patience,
                                                 early_stopping_patience=early_stopping_patience,
-                                                lms_n_tensors=lms_n_tensors,
-                                                lms_lb=lms_lb,
-                                                lms_branch_threshold=lms_branch_threshold,
+                                                lms=lms,
+                                                swapout_threshold=swapout_threshold,
+                                                swapin_groupby=swapin_groupby,
+                                                swapin_ahead=swapin_ahead,
+                                                serialization=serialization,
+                                                sync_mode=sync_mode,
                                                 cuda_profile_epoch=cuda_profile_epoch,
                                                 cuda_profile_batch_start=cuda_profile_batch_start,
                                                 cuda_profile_batch_end=cuda_profile_batch_end))
