@@ -1,17 +1,18 @@
 # 3D U-Net Convolution Neural Network with Keras
 
-## Overview of tflms branch
-The changes in the tflms branch are generally consist of these items:
+## Overview of tflmsv2 branch
+The changes in the tflmsv2 branch are generally consist of these items:
 1. Changes to the model to use tf.keras from TensorFlow and were originally
 made for use with TensorFlow 1.8.
-2. Changes to use optionally use TensorFlow Large Model Support in from
-TensorFlow in IBM PowerAI and available at [https://github.com/IBM/tensorflow-large-model-support](https://github.com/IBM/tensorflow-large-model-support).
+2. Changes to use optionally use TensorFlow Large Model Support in IBM PowerAI,
+ [IBM PowerAI documentation](https://www.ibm.com/support/knowledgecenter/SS5SF7_1.6.0/welcome/welcome.html).
 3. Changes to allow command line specification of TensorFlow Large Model
 Support tuning parameters to train_isensee2017.py.
 4. Changes to optionally allow training the model in a multi-GPU distributed
 fashion using IBM Distributed Deep Learning.
 5. Changes to optionally allow training the model in a multi-GPU distributed
 fashion using [Horovod](https://github.com/uber/horovod)
+6. Changes to enable CUDA profiling.
 
 ![Tumor Segmentation Example](doc/tumor_segmentation_illusatration.gif)
 ## Background
@@ -152,14 +153,7 @@ Keep in mind, though, that a smaller patch sizes may not perform as well as larg
 ## TensorFlow Large Model Support
 ### TensorFlow Builds
 The TensorFlow Large Model Support integration is written assuming the use of
-the TensorFlow build included in IBM PowerAI which includes [TensorFlow
-pull request 19845](https://github.com/tensorflow/tensorflow/pull/19845). The
-model can also be used with non-IBM PowerAI TensorFlow builds. To run
-without IBM PowerAI, the pull request Python changes should be placed in the
-TensorFlow module and the `config_memory_optimizer()` call should be uncommented
-in [train_isensee2017.py](brats/train_isensee2017.py). Note that the
-memory_optimizer.cc changes from the pull request are not needed if you
-uncomment the call to  `config_memory_optimizer()`.
+the TensorFlow build included in IBM PowerAI.
 
 ### TensorFlow Large Model Support tuning
 You can modify the TensorFlow Large Model Support (TFLMS) tuning by passing command line
