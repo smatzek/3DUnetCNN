@@ -1,18 +1,19 @@
 # 3D U-Net Convolution Neural Network with Keras
 
 ## Overview of tflmsv2 branch
-The changes in the tflmsv2 branch are generally consist of these items:
-1. Changes to the model to use tf.keras from TensorFlow and were originally
+The changes in the tflmsv2 branch from the original ellisdg repository generally consist of these items:
+1. Changes to this README to expand on setup and usage sections.
+2. Changes to the model to use tf.keras from TensorFlow and were originally
 made for use with TensorFlow 1.8.
-2. Changes to use optionally use TensorFlow Large Model Support in IBM PowerAI,
+3. Changes to use optionally use TensorFlow Large Model Support in IBM PowerAI,
  [IBM PowerAI documentation](https://www.ibm.com/support/knowledgecenter/SS5SF7_1.6.0/welcome/welcome.html).
-3. Changes to allow command line specification of TensorFlow Large Model
+4. Changes to allow command line specification of TensorFlow Large Model
 Support tuning parameters to train_isensee2017.py.
-4. Changes to optionally allow training the model in a multi-GPU distributed
-fashion using IBM Distributed Deep Learning.
 5. Changes to optionally allow training the model in a multi-GPU distributed
+fashion using IBM Distributed Deep Learning.
+6. Changes to optionally allow training the model in a multi-GPU distributed
 fashion using [Horovod](https://github.com/uber/horovod)
-6. Changes to enable CUDA profiling.
+7. Changes to enable CUDA profiling.
 
 ![Tumor Segmentation Example](doc/tumor_segmentation_illusatration.gif)
 ## Background
@@ -27,24 +28,55 @@ be easily modified to be used in other 3D applications.
 1. Download the BRATS 2017 [GBM](https://app.box.com/shared/static/l5zoa0bjp1pigpgcgakup83pzadm6wxs.zip) and
 [LGG](https://app.box.com/shared/static/x75fzof83mmomea2yy9kshzj3tr9zni3.zip) data. Place the unzipped folders in the
 ```brats/data/original``` folder.
-2. Install dependencies:
+2. Build dependencies
+
+The ANTs tooling that is used for preprocessing must be built from source,
+and the SimpleITK conda package must also be built before installation.
+
+The following steps will build the SimpleITK conda package and place it in
+your local conda repository for future install:
 ```
-nibabel,
-pytables,
-nilearn,
-SimpleITK,
-nipype
+git clone https://github.com/SimpleITK/SimpleITKCondaRecipe.git
+cd SimpleITKCondaRecipe
+conda build --python 3.6 recipe
+```
+
+The following steps will create a conda environment for building ANTs, install
+the cmake and gcc tools as conda packages, and then build the ANTs binaries
+in the `~/ants_build/bin/ants/bin/` directory:
+```
+conda create -n my_build_env python=3.6
+conda activate my_build_env
+conda install -y cmake gxx_linux-ppc64le=7
+cd ~
+mkdir ants_build
+cd ants_build
+git clone https://github.com/ANTsX/ANTs.git
+cd ANTs
+git checkout v2.3.1
+mkdir -p ~/ants_build/bin/ants
+cd ~/ants_build/bin/ants
+cmake ~/ants_build/ANTs
+make -j 120 ANTS
+```
+
+3. Install dependencies:
+```
+conda install pytables lxml scikit-image scikit-learn scipy
+pip install nibabel nilearn nipype
+conda install --use-local simpleitk
 ```
 (nipype is required for preprocessing only)
 
-3. Install [ANTs N4BiasFieldCorrection](https://github.com/stnava/ANTs/releases) and add the location of the ANTs
-binaries to the PATH environmental variable.
+4. Add the location of the ANTs binaries to the PATH environmental variable.
+If you build the dependencies as described above this will be `~/ants_build/bin/ants/bin/`
 
-4. Add the repository directory to the ```PYTONPATH``` system variable:
+5. Add the repository directory to the ```PYTHONPATH``` system variable:
 ```
+cd 3DUNetCNN
 $ export PYTHONPATH=${PWD}:$PYTHONPATH
 ```
-5. Convert the data to nifti format and perform image wise normalization and correction:
+6. Convert the data to nifti format and perform image wise normalization and correction:
 
 cd into the brats subdirectory:
 ```
@@ -56,13 +88,11 @@ $ python
 >>> from preprocess import convert_brats_data
 >>> convert_brats_data("data/original", "data/preprocessed")
 ```
-Note: This may take days. By default the preprocessing will process one
-subject at a time. You can modify the thread count variable
-`NUM_FOLDER_PROCESS_THREADS` in preprocess.py to multithread
-this. On an IBM AC922 server you can set this to 120 threads. The preprocessing
-will take 100% of the CPU and will finish in under two hours.
+Note: By default the preprocessing will process 120
+subjects at a time. You can modify the thread count variable
+`NUM_FOLDER_PROCESS_THREADS` in preprocess.py to change the concurrency.
 
-6. Run the training:
+7. Run the training:
 
 To run training using the original UNet model:
 ```
@@ -77,13 +107,6 @@ $ python train_isensee2017.py
 ```config['patch_shape`] = (64, 64, 64)``` for starters.
 Also, read the "Configuration" notes at the bottom of this page.
 
-If you are running the train_isensee2017.py model multiple times you should
-run:
-```
-$ rm isensee*
-```
-between runs to remove the model and train/validation id files.
-
 ### Write prediction images from the validation data
 In the training above, part of the data was held out for validation purposes.
 To write the predicted label maps to file:
@@ -93,7 +116,8 @@ $ python predict.py
 The predictions will be written in the ```prediction``` folder along with the input data and ground truth labels for
 comparison.
 
-If you have trained the isensee2017 model you will need to copy or rename
+If you have trained the isensee2017 model with the default parameters, the
+model name will be generated with a random name. You will need to copy or rename
 the model and validation ID files to the file names predict.py expects:
 ```
 $ cp isensee_2017_model.h5 tumor_segmentation_model.h5
@@ -160,6 +184,12 @@ You can modify the TensorFlow Large Model Support (TFLMS) tuning by passing comm
 parameters. See the training usage for more information:
 ```
 python train_isensee2017.py --help
+```
+
+An example command to run the 320^3 size with TFLMS (possible on a 32GB GPU) is:
+```
+export TF_CUDA_HOST_MEM_LIMIT_IN_MB=300000
+numactl --cpunodebind=0 --membind=0 python train_isensee2017.py --lms --data_file_path=320_data.h5 --image_size 320
 ```
 
 ## Using this code on other 3D datasets
