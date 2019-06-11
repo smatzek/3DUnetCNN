@@ -3,8 +3,7 @@
 ## Overview of tflmsv2 branch
 The changes in the tflmsv2 branch from the original ellisdg repository generally consist of these items:
 1. Changes to this README to expand on setup and usage sections.
-2. Changes to the model to use tf.keras from TensorFlow and were originally
-made for use with TensorFlow 1.8.
+2. Changes to the model to use tf.keras from TensorFlow.
 3. Changes to use optionally use TensorFlow Large Model Support in IBM PowerAI,
  [IBM PowerAI documentation](https://www.ibm.com/support/knowledgecenter/SS5SF7_1.6.0/welcome/welcome.html).
 4. Changes to allow command line specification of TensorFlow Large Model
@@ -188,7 +187,11 @@ python train_isensee2017.py --help
 
 An example command to run the 320^3 size with TFLMS (possible on a 32GB GPU) is:
 ```
+# TF_CUDA_HOST_MEM_LIMIT_IN_MB in TensorFlow < 1.14
+# TF_GPU_HOST_MEM_LIMIT_IN_MB in TensorFlow >= 1.14
 export TF_CUDA_HOST_MEM_LIMIT_IN_MB=300000
+export TF_GPU_HOST_MEM_LIMIT_IN_MB=$TF_CUDA_HOST_MEM_LIMIT_IN_MB
+
 numactl --cpunodebind=0 --membind=0 python train_isensee2017.py --lms --data_file_path=320_data.h5 --image_size 320
 ```
 
