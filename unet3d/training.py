@@ -13,7 +13,7 @@ _cudart = ctypes.CDLL('libcudart.so')
 
 from tensorflow_large_model_support import LMS
 # Set tf logging to INFO for LMS messages
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 tf.logging.set_verbosity(tf.logging.INFO)
 import sys
 import os

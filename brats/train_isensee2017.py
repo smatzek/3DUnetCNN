@@ -1,3 +1,6 @@
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+
 import argparse
 import os
 import glob
@@ -16,7 +19,6 @@ if "DDL_OPTIONS" in os.environ:
   dist_mod = ddl
 
 if "USE_HOROVOD_3DUNET" in os.environ:
-  import tensorflow as tf
   from tensorflow.core.protobuf import rewriter_config_pb2
   from tensorflow.python.keras import backend as K
   import horovod.keras as hvd
@@ -37,7 +39,6 @@ if "USE_HOROVOD_3DUNET" in os.environ:
 FLAGS = None
 def config_memory_optimizer():
     # Set config for memory optimizer
-    import tensorflow as tf
     from tensorflow.core.protobuf import rewriter_config_pb2
     from tensorflow.python.keras import backend as K
     config = tf.ConfigProto()

@@ -2,7 +2,7 @@ import os
 dist_mod = None
 if "USE_HOROVOD_3DUNET" in os.environ:
     import sys
-    import tensorflow as tf
+    import tensorflow.compat.v1 as tf
     import horovod.keras as hvd
     dist_mod = hvd
 # In newer versions of Keras this is now set in ~/.keras/keras.json as:
