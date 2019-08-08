@@ -167,6 +167,7 @@ def main(overwrite=False):
                 swapin_groupby=FLAGS.swapin_groupby,
                 swapin_ahead=FLAGS.swapin_ahead,
                 serialization=FLAGS.serialization,
+                serialization_by_size=FLAGS.serialization_by_size,
                 sync_mode=FLAGS.sync_mode,
                 cuda_profile_epoch=FLAGS.cuda_profile_epoch,
                 cuda_profile_batch_start=FLAGS.cuda_profile_batch_start,
@@ -216,6 +217,12 @@ if __name__ == "__main__":
                              '[\'parameter:\']. See the TFLMS documentation '
                              'for more information. Default -1, no '
                              'serialization.')
+    parser.add_argument("--serialization_by_size", type=float, default=0,
+                        help='Serialize operations in levels of the '
+                             'topological sort, if the cumulative memory '
+                             'consumption of the level is greater than '
+                             'serialization_by_size. The size unit is GiB. '
+                             'Default 0 (turn off).')
     parser.add_argument("--sync_mode", type=int, default=0,
                         help='Sync mode of TFLMS. See the TFLMS documentation '
                              'for more information. Default: no '
