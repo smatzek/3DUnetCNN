@@ -49,6 +49,7 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
                   swapin_groupby=-1,
                   swapin_ahead=-1,
                   serialization=-1,
+                  serialization_by_size=0,
                   sync_mode=0,
                   cuda_profile_epoch=0, cuda_profile_batch_start=0,
                   cuda_profile_batch_end=0):
@@ -76,6 +77,7 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
                            swapin_groupby=swapin_groupby,
                            swapin_ahead=swapin_ahead,
                            sync_mode=sync_mode,
+                           serialization_by_size=serialization_by_size,
                            serialization=serialization_list)
         lms_callback.batch_size = 1
         callbacks.append(lms_callback)
@@ -125,6 +127,7 @@ def train_model(model, model_file, training_generator, validation_generator, ste
                 swapin_groupby=-1,
                 swapin_ahead=-1,
                 serialization=-1,
+                serialization_by_size=0,
                 sync_mode=0,
                 cuda_profile_epoch=0,
                 cuda_profile_batch_start=0,
@@ -164,6 +167,7 @@ def train_model(model, model_file, training_generator, validation_generator, ste
                                                 swapin_groupby=swapin_groupby,
                                                 swapin_ahead=swapin_ahead,
                                                 serialization=serialization,
+                                                serialization_by_size=serialization_by_size,
                                                 sync_mode=sync_mode,
                                                 cuda_profile_epoch=cuda_profile_epoch,
                                                 cuda_profile_batch_start=cuda_profile_batch_start,
