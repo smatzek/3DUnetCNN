@@ -94,7 +94,7 @@ subjects at a time. You can modify the thread count variable
 
 7. Run the training:
 
-To run training using the original UNet model:
+To run training using the original UNet model (Not LMS enabled):
 ```
 $ python train.py
 ```
@@ -102,10 +102,6 @@ $ python train.py
 To run training using an improved UNet model (recommended):
 ```
 $ python train_isensee2017.py
-```
-**If you run out of memory during training:** try setting
-```config['patch_shape`] = (64, 64, 64)``` for starters.
-Also, read the "Configuration" notes at the bottom of this page.
 
 ### Write prediction images from the validation data
 In the training above, part of the data was held out for validation purposes.
@@ -147,7 +143,7 @@ The both the loss graph and the box plot were created by running the
 folder after training has been completed.
 
 ### Results from Isensee et al. 2017 model
-I also trained a [model](unet3d/model/isensee2017.py) with the architecture as described in the [2017 BRATS proceedings
+I (ellisdg) also trained a [model](unet3d/model/isensee2017.py) with the architecture as described in the [2017 BRATS proceedings
 ](https://www.cbica.upenn.edu/sbia/Spyridon.Bakas/MICCAI_BraTS/MICCAI_BraTS_2017_proceedings_shortPapers.pdf)
 on page 100. This [architecture](doc/isensee2017.png) employs a number of changes to the basic UNet including an
 [equally weighted dice coefficient](unet3d/metrics.py#L17),
@@ -161,23 +157,10 @@ As the results below show, this network performed much better than the original 
 ![Isensee boxplot scores
 ](doc/isensee_2017_scores_boxplot.png)
 
-### Configuration
-Changing the configuration dictionary in the [train.py](brats/train.py) or the
-[train_isensee2017.py](brats/train_isensee2017.py) scripts, makes it easy to test out different model and
-training configurations.
-I would recommend trying out the Isensee et al. model first and then modifying the parameters until you have satisfactory
-results.
-If you are running out of memory, try training using ```(64, 64, 64)``` shaped patches.
-Reducing the "batch_size" and "validation_batch_size" parameters will also reduce the amount of memory required for
-training as smaller batch sizes feed smaller chunks of data to the CNN.
-If the batch size is reduced down to 1 and it still you are still running
-out of memory, you could also try changing the patch size to ```(32, 32, 32)```.
-Keep in mind, though, that a smaller patch sizes may not perform as well as larger patch sizes.
-
 ## TensorFlow Large Model Support
 ### TensorFlow Builds
 The TensorFlow Large Model Support integration is written assuming the use of
-the TensorFlow build included in IBM PowerAI.
+the TensorFlow build included in IBM Watson Machine Learning Community Edition / IBM PowerAI.
 
 ### TensorFlow Large Model Support tuning
 You can modify the TensorFlow Large Model Support (TFLMS) tuning by passing command line
