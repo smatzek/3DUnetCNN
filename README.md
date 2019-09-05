@@ -101,6 +101,7 @@ $ python train.py
 To run training using an improved UNet model (recommended):
 ```
 $ python train_isensee2017.py
+```
 
 ### Write prediction images from the validation data
 In the training above, part of the data was held out for validation purposes.
