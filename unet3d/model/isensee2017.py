@@ -11,9 +11,9 @@ if "USE_HOROVOD_3DUNET" in os.environ:
 
 from functools import partial
 
-from tensorflow.python.keras.layers import Input, LeakyReLU, Add, UpSampling3D, Activation, SpatialDropout3D
-from tensorflow.python.keras.models import Model
-from tensorflow.python.keras.optimizers import Adam
+from tensorflow.keras.layers import Input, LeakyReLU, Add, UpSampling3D, Activation, SpatialDropout3D
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 
 from .unet import create_convolution_block, concatenate
 from ..metrics import weighted_dice_coefficient_loss

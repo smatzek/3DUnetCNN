@@ -1,20 +1,20 @@
 import math
 from functools import partial
 
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.callbacks import ModelCheckpoint, CSVLogger, LearningRateScheduler, ReduceLROnPlateau, EarlyStopping
-from tensorflow.python.keras.models import load_model
+from tensorflow.keras import backend as K
+from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, LearningRateScheduler, ReduceLROnPlateau, EarlyStopping
+from tensorflow.keras.models import load_model
 
 from unet3d.metrics import (dice_coefficient, dice_coefficient_loss, dice_coef, dice_coef_loss,
                             weighted_dice_coefficient_loss, weighted_dice_coefficient)
-from tensorflow.python.keras.callbacks import Callback
+from tensorflow.keras.callbacks import Callback
 import ctypes
 _cudart = ctypes.CDLL('libcudart.so')
 
-from tensorflow_large_model_support import LMS
+#from tensorflow_large_model_support import LMS
 # Set tf logging to INFO for LMS messages
 import tensorflow as tf
-tf.logging.set_verbosity(tf.logging.INFO)
+#tf.logging.set_verbosity(tf.logging.INFO)
 import sys
 import os
 
