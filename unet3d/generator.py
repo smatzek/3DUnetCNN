@@ -285,7 +285,7 @@ def get_multi_class_labels(data, n_labels, labels=None):
     :return: binary numpy array of shape: (n_samples, n_labels, ...)
     """
     new_shape = [data.shape[0], n_labels] + list(data.shape[2:])
-    y = np.zeros(new_shape, np.int8)
+    y = np.zeros(new_shape, np.float32)
     for label_index in range(n_labels):
         if labels is not None:
             y[:, label_index][data[:, 0] == labels[label_index]] = 1
