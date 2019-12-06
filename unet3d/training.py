@@ -44,15 +44,7 @@ def step_decay(epoch, initial_lrate, drop, epochs_drop):
 
 def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0.5, learning_rate_epochs=None,
                   learning_rate_patience=50, logging_file="training.log", verbosity=1,
-                  early_stopping_patience=None, lms=False,
-                  swapout_threshold=-1,
-                  swapin_groupby=-1,
-                  swapin_ahead=-1,
-                  serialization=-1,
-                  serialization_by_size=0,
-                  sync_mode=0,
-                  cuda_profile_epoch=0, cuda_profile_batch_start=0,
-                  cuda_profile_batch_end=0):
+                  early_stopping_patience=None, callbacks_config=dict()):
     callbacks = list()
     if dist_mech is 'ddl':
       callbacks.append(ddl.DDLCallback())
@@ -68,19 +60,6 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
     if early_stopping_patience:
         callbacks.append(EarlyStopping(verbose=verbosity, patience=early_stopping_patience))
 
-    if lms:
-        serialization_list = []
-        if serialization > 0:
-            serialization_list.append('%s:' % serialization)
-
-        lms_callback = LMS(swapout_threshold=swapout_threshold,
-                           swapin_groupby=swapin_groupby,
-                           swapin_ahead=swapin_ahead,
-                           sync_mode=sync_mode,
-                           serialization_by_size=serialization_by_size,
-                           serialization=serialization_list)
-        lms_callback.batch_size = 1
-        callbacks.append(lms_callback)
     if dist_mech is 'ddl':
       callbacks.append(ddl.DDLGlobalVariablesCallback())
     elif dist_mech is 'horovod':
@@ -90,10 +69,10 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
       #print("************horovod callback added***************")
       callbacks.append(hvd.callbacks.BroadcastGlobalVariablesCallback(0))
 
-    if cuda_profile_epoch:
-        callbacks.append(CudaProfileCallback(cuda_profile_epoch,
-                                             cuda_profile_batch_start,
-                                             cuda_profile_batch_end))
+    if callbacks_config.get('cuda_profile_epoch'):
+        callbacks.append(CudaProfileCallback(callbacks_config['cuda_profile_epoch'],
+                                             callbacks_config['cuda_profile_batch_start'],
+                                             callbacks_config['cuda_profile_batch_end']))
 
     return callbacks
 
@@ -121,17 +100,7 @@ def load_old_model(model_file):
 
 def train_model(model, model_file, training_generator, validation_generator, steps_per_epoch, validation_steps,
                 initial_learning_rate=0.001, learning_rate_drop=0.5, learning_rate_epochs=None, n_epochs=500,
-                learning_rate_patience=20, early_stopping_patience=None,
-                lms=False,
-                swapout_threshold=-1,
-                swapin_groupby=-1,
-                swapin_ahead=-1,
-                serialization=-1,
-                serialization_by_size=0,
-                sync_mode=0,
-                cuda_profile_epoch=0,
-                cuda_profile_batch_start=0,
-                cuda_profile_batch_end=0):
+                learning_rate_patience=20, early_stopping_patience=None, callbacks_config=dict()):
     """
     Train a Keras model.
     :param early_stopping_patience: If set, training will end early if the validation loss does not improve after the
@@ -162,16 +131,8 @@ def train_model(model, model_file, training_generator, validation_generator, ste
                                                 learning_rate_epochs=learning_rate_epochs,
                                                 learning_rate_patience=learning_rate_patience,
                                                 early_stopping_patience=early_stopping_patience,
-                                                lms=lms,
-                                                swapout_threshold=swapout_threshold,
-                                                swapin_groupby=swapin_groupby,
-                                                swapin_ahead=swapin_ahead,
-                                                serialization=serialization,
-                                                serialization_by_size=serialization_by_size,
-                                                sync_mode=sync_mode,
-                                                cuda_profile_epoch=cuda_profile_epoch,
-                                                cuda_profile_batch_start=cuda_profile_batch_start,
-                                                cuda_profile_batch_end=cuda_profile_batch_end))
+                                                logging_file=callbacks_config['training_log_file'],
+                                                callbacks_config=callbacks_config))
 
 class CudaProfileCallback(Callback):
     def __init__(self, profile_epoch, profile_batch_start, profile_batch_end):

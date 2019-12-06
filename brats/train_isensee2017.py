@@ -3,6 +3,7 @@ import os
 import glob
 import random
 import string
+import tensorflow as tf
 
 from unet3d.data import write_data_to_file, open_data_file
 from unet3d.generator import get_training_and_validation_generators
@@ -16,7 +17,6 @@ if "DDL_OPTIONS" in os.environ:
   dist_mod = ddl
 
 if "USE_HOROVOD_3DUNET" in os.environ:
-  import tensorflow as tf
   from tensorflow.core.protobuf import rewriter_config_pb2
   from tensorflow.python.keras import backend as K
   import horovod.keras as hvd
@@ -90,6 +90,7 @@ config["data_file"] = os.path.abspath("brats_data.h5")
 config["model_file"] = os.path.abspath("isensee_2017_model.h5")
 config["training_file"] = os.path.abspath("isensee_training_ids.pkl")
 config["validation_file"] = os.path.abspath("isensee_validation_ids.pkl")
+config["training_log_file"] = 'training.log'
 config["overwrite"] = False  # If True, will previous files. If False, will use previously written files.
 
 
@@ -109,6 +110,21 @@ def fetch_training_data_files(return_subject_ids=False):
 
 
 def main(overwrite=False):
+
+    if FLAGS.lms:
+        tf.config.experimental.set_lms_enabled(True)
+        print('LMS Enabled')
+    else:
+        print('LMS Disabled')
+
+
+    if FLAGS.gpu_memory_limit:
+        print('Limiting GPU memory to %s MB' % FLAGS.gpu_memory_limit)
+        physical_devices = tf.config.experimental.list_physical_devices('GPU')
+        tf.config.experimental.set_virtual_device_configuration(
+          physical_devices[0],
+          [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=FLAGS.gpu_memory_limit)])
+
     # convert input images into an hdf5 file
     if overwrite or not os.path.exists(config["data_file"]):
         training_files, subject_ids = fetch_training_data_files(return_subject_ids=True)
@@ -150,6 +166,10 @@ def main(overwrite=False):
     if FLAGS.validation_steps:
         n_validation_steps = FLAGS.validation_steps
 
+    callbacks_config = {'cuda_profile_epoch': FLAGS.cuda_profile_epoch,
+                        'cuda_profile_batch_start': FLAGS.cuda_profile_batch_start,
+                        'cuda_profile_batch_end': FLAGS.cuda_profile_batch_end,
+                        'training_log_file': config["training_log_file"]}
     # run training
     train_model(model=model,
                 model_file=config["model_file"],
@@ -162,16 +182,7 @@ def main(overwrite=False):
                 learning_rate_patience=config["patience"],
                 early_stopping_patience=config["early_stop"],
                 n_epochs=config["n_epochs"],
-                lms=FLAGS.lms,
-                swapout_threshold=FLAGS.swapout_threshold,
-                swapin_groupby=FLAGS.swapin_groupby,
-                swapin_ahead=FLAGS.swapin_ahead,
-                serialization=FLAGS.serialization,
-                serialization_by_size=FLAGS.serialization_by_size,
-                sync_mode=FLAGS.sync_mode,
-                cuda_profile_epoch=FLAGS.cuda_profile_epoch,
-                cuda_profile_batch_start=FLAGS.cuda_profile_batch_start,
-                cuda_profile_batch_end=FLAGS.cuda_profile_batch_end)
+                callbacks_config=callbacks_config)
     data_file_opened.close()
 
 
@@ -198,35 +209,10 @@ if __name__ == "__main__":
     lms_group.add_argument('--no-lms', dest='lms', action='store_false',
                            help='Disable TFLMS (Default)')
     parser.set_defaults(lms=False)
-    parser.add_argument("--swapout_threshold", type=int, default=-1,
-                        help='The TFLMS swapout_threshold parameter. See the '
-                             'TFLMS documentation for more information. '
-                             'Default `-1` (auto mode).')
-    parser.add_argument("--swapin_groupby", type=int, default=-1,
-                        help='The TFLMS swapin_groupby parameter. See the '
-                             'TFLMS documentation for more information. '
-                             'Default `-1` (auto mode).')
-    parser.add_argument("--swapin_ahead", type=int, default=-1,
-                        help='The TFLMS swapin_ahead parameter. See the '
-                             'TFLMS documentation for more information. '
-                             'Default `-1` (auto mode).')
-    parser.add_argument("--serialization", type=int, default=-1,
-                        help='The layer to start serialization on. This '
-                             'number will be passed to the LMS serialization '
-                             'parameter as the start of a slice like this: '
-                             '[\'parameter:\']. See the TFLMS documentation '
-                             'for more information. Default -1, no '
-                             'serialization.')
-    parser.add_argument("--serialization_by_size", type=float, default=0,
-                        help='Serialize operations in levels of the '
-                             'topological sort, if the cumulative memory '
-                             'consumption of the level is greater than '
-                             'serialization_by_size. The size unit is GiB. '
-                             'Default 0 (turn off).')
-    parser.add_argument("--sync_mode", type=int, default=0,
-                        help='Sync mode of TFLMS. See the TFLMS documentation '
-                             'for more information. Default: no '
-                             'synchronization.')
+    parser.add_argument("--gpu_memory_limit", type=int, default=0,
+                        help='Set up a single virtual GPU device with the '
+                             'specified amount of GPU memory (in MB). '
+                             'Disabled by default.')
     parser.add_argument('--steps_per_epoch', type=int,
                       default=0,
                       help='An override for the number of steps to run in an '
@@ -266,7 +252,13 @@ if __name__ == "__main__":
     config['data_file'] = FLAGS.data_file_path
     if FLAGS.randomize_model_name:
         random_part = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-        config["model_file"] = os.path.abspath("isensee_2017_model_%s.h5" % random_part)
+        config["model_file"] = os.path.abspath("%s_isensee_2017_model.h5" % random_part)
         print('Generated model filename: %s' % config["model_file"])
+        config["training_log_file"] = "%s_training.log" % random_part
+        print('Generated training log filename: %s' % config["training_log_file"])
+
+        with open("%s_run_params.txt" % random_part,"w") as paramlog:
+            paramlog.write(str(FLAGS))
+
 
     main(overwrite=config["overwrite"])
