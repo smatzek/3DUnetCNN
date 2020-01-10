@@ -1,3 +1,5 @@
+import time
+import csv
 import math
 from functools import partial
 
@@ -73,6 +75,7 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
         callbacks.append(CudaProfileCallback(callbacks_config['cuda_profile_epoch'],
                                              callbacks_config['cuda_profile_batch_start'],
                                              callbacks_config['cuda_profile_batch_end']))
+    callbacks.append(LMSStats(callbacks_config['lms_stats_logfile']))
 
     return callbacks
 
@@ -153,3 +156,57 @@ class CudaProfileCallback(Callback):
             ret = _cudart.cudaProfilerStop()
             if ret != 0:
               raise Exception("cudaProfilerStop() returned %d" % ret)
+
+class LMSStats(Callback):
+    def __init__(self, logfile):
+        self._epoch=0
+        self._logfile = logfile
+
+    def set_params(self, params):
+        with open(self._logfile, 'w', newline='') as csvfile:
+            statswriter = csv.writer(csvfile)
+            statswriter.writerow(['step type', 'epoch', 'step', 
+                                  'duration', 'allocs', 'reclaimOnes',
+                                  'reclaimAlls', #'defrags',
+                                  'GiB reclaimed',])# 'GiB defragged'])
+
+    def on_epoch_begin(self, epoch, logs=None):
+        self._epoch = epoch
+
+    def on_epoch_end(self, epoch, logs=None):
+        self._epoch = epoch
+
+    def on_train_batch_begin(self, batch, logs=None):
+        self.get_start_numbers()
+
+    def on_test_batch_begin(self, batch, logs=None):
+        self.get_start_numbers()
+
+    def on_train_batch_end(self, batch, logs=None):
+        self.log_end('t', batch)
+
+    def on_test_batch_end(self, batch, logs=None):
+        self.log_end('v', batch)
+    
+    def get_start_numbers(self):
+        self._batch_start = time.time()
+        self._num_reclaims = tf.experimental.get_num_single_reclaims(0)
+        self._num_reclaimAll = tf.experimental.get_num_full_reclaims(0)
+#        self._defrags = tf.experimental.get_num_defragmentations(0)
+        self._bytes_reclaimed = tf.experimental.get_bytes_reclaimed(0)
+        self._num_allocs = tf.experimental.get_num_allocs(0)
+#        self._bytes_defragged = tf.experimental.get_bytes_defragged(0)
+     
+    def log_end(self, step_type, batch_num):
+        row = [step_type, self._epoch, batch_num]
+        row.append(time.time()-self._batch_start) # duration
+        row.append(tf.experimental.get_num_allocs(0)-self._num_allocs) # allocs
+        row.append(tf.experimental.get_num_single_reclaims(0)-self._num_reclaims) # reclaims
+        row.append(tf.experimental.get_num_full_reclaims(0)-self._num_reclaimAll) # reclaimAlls
+#        row.append(tf.experimental.get_num_defragmentations(0) - self._defrags) # defrags
+        row.append(((tf.experimental.get_bytes_reclaimed(0)-self._bytes_reclaimed) / 1073741824.0)) # GiB reclaimed
+#        row.append(((tf.experimental.get_bytes_defragged(0)-self._bytes_defragged) / 1073741824.0)) # GiB defragged
+        
+        with open(self._logfile, 'a+', newline='') as csvfile:
+            statswriter = csv.writer(csvfile)
+            statswriter.writerow(row)

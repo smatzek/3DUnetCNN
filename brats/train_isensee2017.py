@@ -92,6 +92,7 @@ config["training_file"] = os.path.abspath("isensee_training_ids.pkl")
 config["validation_file"] = os.path.abspath("isensee_validation_ids.pkl")
 config["training_log_file"] = 'training.log'
 config["overwrite"] = False  # If True, will previous files. If False, will use previously written files.
+config['lms_stats_logfile'] = 'lms_stats.csv'
 
 
 def fetch_training_data_files(return_subject_ids=False):
@@ -169,7 +170,8 @@ def main(overwrite=False):
     callbacks_config = {'cuda_profile_epoch': FLAGS.cuda_profile_epoch,
                         'cuda_profile_batch_start': FLAGS.cuda_profile_batch_start,
                         'cuda_profile_batch_end': FLAGS.cuda_profile_batch_end,
-                        'training_log_file': config["training_log_file"]}
+                        'training_log_file': config["training_log_file"],
+                        'lms_stats_logfile': config['lms_stats_logfile']}
     # run training
     train_model(model=model,
                 model_file=config["model_file"],
@@ -253,6 +255,8 @@ if __name__ == "__main__":
     if FLAGS.randomize_model_name:
         random_part = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
         config["model_file"] = os.path.abspath("%s_isensee_2017_model.h5" % random_part)
+        config['lms_stats_logfile'] = ("%s_" + config['lms_stats_logfile']) % random_part
+
         print('Generated model filename: %s' % config["model_file"])
         config["training_log_file"] = "%s_training.log" % random_part
         print('Generated training log filename: %s' % config["training_log_file"])
