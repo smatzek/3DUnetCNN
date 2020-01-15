@@ -115,6 +115,9 @@ def main(overwrite=False):
     if FLAGS.lms:
         tf.config.experimental.set_lms_enabled(True)
         print('LMS Enabled')
+        tf.config.experimental.set_lms_defrag_enabled(True)
+        print('LMS Defragmentation Enabled')
+
     else:
         print('LMS Disabled')
 

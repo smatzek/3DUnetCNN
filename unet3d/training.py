@@ -165,10 +165,10 @@ class LMSStats(Callback):
     def set_params(self, params):
         with open(self._logfile, 'w', newline='') as csvfile:
             statswriter = csv.writer(csvfile)
-            statswriter.writerow(['step type', 'epoch', 'step', 
+            statswriter.writerow(['step type', 'epoch', 'step',
                                   'duration', 'allocs', 'reclaimOnes',
-                                  'reclaimAlls', #'defrags',
-                                  'GiB reclaimed',])# 'GiB defragged'])
+                                  'reclaimAlls', 'defrags',
+                                  'GiB reclaimed', 'GiB defragged'])
 
     def on_epoch_begin(self, epoch, logs=None):
         self._epoch = epoch
@@ -187,26 +187,26 @@ class LMSStats(Callback):
 
     def on_test_batch_end(self, batch, logs=None):
         self.log_end('v', batch)
-    
+
     def get_start_numbers(self):
         self._batch_start = time.time()
         self._num_reclaims = tf.experimental.get_num_single_reclaims(0)
         self._num_reclaimAll = tf.experimental.get_num_full_reclaims(0)
-#        self._defrags = tf.experimental.get_num_defragmentations(0)
+        self._defrags = tf.experimental.get_num_defragmentations(0)
         self._bytes_reclaimed = tf.experimental.get_bytes_reclaimed(0)
         self._num_allocs = tf.experimental.get_num_allocs(0)
-#        self._bytes_defragged = tf.experimental.get_bytes_defragged(0)
-     
+        self._bytes_defragged = tf.experimental.get_bytes_defragged(0)
+
     def log_end(self, step_type, batch_num):
         row = [step_type, self._epoch, batch_num]
         row.append(time.time()-self._batch_start) # duration
         row.append(tf.experimental.get_num_allocs(0)-self._num_allocs) # allocs
         row.append(tf.experimental.get_num_single_reclaims(0)-self._num_reclaims) # reclaims
         row.append(tf.experimental.get_num_full_reclaims(0)-self._num_reclaimAll) # reclaimAlls
-#        row.append(tf.experimental.get_num_defragmentations(0) - self._defrags) # defrags
+        row.append(tf.experimental.get_num_defragmentations(0) - self._defrags) # defrags
         row.append(((tf.experimental.get_bytes_reclaimed(0)-self._bytes_reclaimed) / 1073741824.0)) # GiB reclaimed
-#        row.append(((tf.experimental.get_bytes_defragged(0)-self._bytes_defragged) / 1073741824.0)) # GiB defragged
-        
+        row.append(((tf.experimental.get_bytes_defragged(0)-self._bytes_defragged) / 1073741824.0)) # GiB defragged
+
         with open(self._logfile, 'a+', newline='') as csvfile:
             statswriter = csv.writer(csvfile)
             statswriter.writerow(row)
