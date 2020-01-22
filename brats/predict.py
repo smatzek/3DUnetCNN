@@ -13,7 +13,7 @@ def main():
                            'validation subjects.')
     parser.add_argument('--model_file', type=str,
                       default='isensee_2017_model.h5',
-                      help='Path to the aved model file.')
+                      help='Path to the model file.')
     parser.add_argument('--output_dir', type=str,
                       default='prediction',
                       help='Output directory')

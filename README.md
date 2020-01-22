@@ -78,15 +78,15 @@ subjects at a time. You can modify the thread count variable
 
 7. Run the training:
 
-To run training using the original UNet model (Not LMS enabled):
-```
-$ python train.py
-```
-
-To run training using an improved UNet model (recommended):
+To run training using an improved UNet model:
 ```
 $ python train_isensee2017.py
 ```
+
+The train_isensee2017.py program has command line parameters that allow
+changing many things including image resolution, output file names,
+profiling, and Large Model Support enablement. See
+`python train_isensee2017.py --help` for more information.
 
 ### Write prediction images from the validation data
 In the training above, part of the data was held out for validation purposes.
@@ -94,26 +94,24 @@ To write the predicted label maps to file:
 ```
 $ python predict.py
 ```
-The predictions will be written in the ```prediction``` folder along with the input data and ground truth labels for
-comparison.
+The predictions will be written in the ```prediction``` folder along with the
+input data and ground truth labels for comparison.
 
 If you have trained the isensee2017 model with the default parameters, the
-model name will be generated with a random name. You will need to copy or rename
-the model and validation ID files to the file names predict.py expects:
-```
-$ cp isensee_2017_model.h5 tumor_segmentation_model.h5
-$ cp isensee_validation_ids.pkl validation_ids.pkl
-```
+model name will be generated with a random name. The predict.py file
+supports command line parameters to provide specify input and output
+locations. See `python predict.py --help` for more information.
 
 ### Write loss graph and validation score box plots
 To create the loss graph and validation score box plot png files run:
 ```
 $ python evaluate.py
 ```
-Note that this uses training.log for the loss graph information. If you
-have run the model training multiple times you will need to modify the
-training.log file so that it only contains the latest run data. Alternatively,
-could could remove the training.log file between runs.
+
+The evaluate.py program supports one position parameter that allows you
+to specify the directory containing the predictions. If unspecified
+it will default to `prediction` which is the default output directory of
+predict.py.
 
 ### Results from patch-wise training using original UNet
 ![Patchwise training loss graph
@@ -147,19 +145,18 @@ As the results below show, this network performed much better than the original 
 The TensorFlow Large Model Support integration is written assuming the use of
 the TensorFlow build included in IBM Watson Machine Learning Community Edition / IBM PowerAI.
 
-### TensorFlow Large Model Support tuning
-You can modify the TensorFlow Large Model Support (TFLMS) tuning by passing command line
-parameters. See the training usage for more information:
+### TensorFlow Large Model Support
+You can modify enable TensorFlow Large Model Support by passing command line
+parameters. Additional parameters allow specifying different input data files,
+image sizes, profiling, log LMS statitics, and more.
+See the training usage for more information:
 ```
 python train_isensee2017.py --help
 ```
 
 An example command to run the 320^3 size with TFLMS (possible on a 32GB GPU) is:
 ```
-# TF_CUDA_HOST_MEM_LIMIT_IN_MB in TensorFlow < 1.14
-# TF_GPU_HOST_MEM_LIMIT_IN_MB in TensorFlow >= 1.14
-export TF_CUDA_HOST_MEM_LIMIT_IN_MB=300000
-export TF_GPU_HOST_MEM_LIMIT_IN_MB=$TF_CUDA_HOST_MEM_LIMIT_IN_MB
+export TF_GPU_HOST_MEM_LIMIT_IN_MB=300000
 
 numactl --cpunodebind=0 --membind=0 python train_isensee2017.py --lms --data_file_path=320_data.h5 --image_size 320
 ```
