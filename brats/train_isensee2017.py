@@ -138,6 +138,9 @@ def main(overwrite=False):
                         'cuda_profile_batch_end': FLAGS.cuda_profile_batch_end,
                         'training_log_file': config["training_log_file"],
                         'lms_stats_logfile': config['lms_stats_logfile']}
+    if FLAGS.lms_stats:
+        callbacks_config['lms_stats_enabled'] = True
+
     # run training
     train_model(model=model,
                 model_file=config["model_file"],
@@ -181,6 +184,13 @@ if __name__ == "__main__":
                         help='Set up a single virtual GPU device with the '
                              'specified amount of GPU memory (in MB). '
                              'Disabled by default.')
+    lms_group = parser.add_mutually_exclusive_group(required=False)
+    lms_group.add_argument('--lms_stats', dest='lms_stats', action='store_true',
+                           help='Enable logging of LMS stats')
+    lms_group.add_argument('--no-lms_stats', dest='lms_stats', action='store_false',
+                           help='Disable logging of LMS stats (Default)')
+    parser.set_defaults(lms_stats=False)
+
     parser.add_argument('--steps_per_epoch', type=int,
                       default=0,
                       help='An override for the number of steps to run in an '
@@ -197,10 +207,10 @@ if __name__ == "__main__":
                            'The default is to use the default number of '
                            'validation steps given the training/validation '
                            'subject split.')
-    parser.add_argument('--randomize_model_name', type=bool,
+    parser.add_argument('--randomize_output_file_names', type=bool,
                       default=True,
-                      help='This will generate a random name for the model on '
-                           'each run. Default is True')
+                      help='This will generate and a prepend random name '
+                           'for training output files. Default is True')
     parser.add_argument('--cuda_profile_epoch', type=int,
                       default=0,
                       help='The epoch in which to start CUDA profiling '
@@ -218,14 +228,13 @@ if __name__ == "__main__":
     config['image_shape'] = (FLAGS.image_size, FLAGS.image_size, FLAGS.image_size)
     setup_input_shape()
     config['data_file'] = FLAGS.data_file_path
-    if FLAGS.randomize_model_name:
+    if FLAGS.randomize_output_file_names:
         random_part = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        print('The prefix for output file names is:', random_part)
+
         config["model_file"] = os.path.abspath("%s_isensee_2017_model.h5" % random_part)
         config['lms_stats_logfile'] = ("%s_" + config['lms_stats_logfile']) % random_part
-
-        print('Generated model filename: %s' % config["model_file"])
         config["training_log_file"] = "%s_training.log" % random_part
-        print('Generated training log filename: %s' % config["training_log_file"])
 
         with open("%s_run_params.txt" % random_part,"w") as paramlog:
             paramlog.write(str(FLAGS))
