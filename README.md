@@ -12,24 +12,55 @@ be easily modified to be used in other 3D applications.
 1. Download the BRATS 2017 [GBM](https://app.box.com/shared/static/l5zoa0bjp1pigpgcgakup83pzadm6wxs.zip) and
 [LGG](https://app.box.com/shared/static/x75fzof83mmomea2yy9kshzj3tr9zni3.zip) data. Place the unzipped folders in the
 ```brats/data/original``` folder.
-2. Install dependencies:
+2. Build dependencies
+
+The ANTs tooling that is used for preprocessing must be built from source,
+and the SimpleITK conda package must also be built before installation.
+
+The following steps will build the SimpleITK conda package and place it in
+your local conda repository for future install:
 ```
-nibabel,
-pytables,
-nilearn,
-SimpleITK,
-nipype
+git clone https://github.com/SimpleITK/SimpleITKCondaRecipe.git
+cd SimpleITKCondaRecipe
+conda build --python 3.6 recipe
+```
+
+The following steps will create a conda environment for building ANTs, install
+the cmake and gcc tools as conda packages, and then build the ANTs binaries
+in the `~/ants_build/bin/ants/bin/` directory:
+```
+conda create -n my_build_env python=3.6
+conda activate my_build_env
+conda install -y cmake gxx_linux-ppc64le=7
+cd ~
+mkdir ants_build
+cd ants_build
+git clone https://github.com/ANTsX/ANTs.git
+cd ANTs
+git checkout v2.3.1
+mkdir -p ~/ants_build/bin/ants
+cd ~/ants_build/bin/ants
+cmake ~/ants_build/ANTs
+make -j 120 ANTS
+```
+
+3. Install dependencies:
+```
+conda install pytables lxml scikit-image scikit-learn scipy
+pip install nibabel nilearn nipype
+conda install --use-local simpleitk
 ```
 (nipype is required for preprocessing only)
 
-3. Install [ANTs N4BiasFieldCorrection](https://github.com/stnava/ANTs/releases) and add the location of the ANTs
-binaries to the PATH environmental variable.
+4. Add the location of the ANTs binaries to the PATH environmental variable.
+If you build the dependencies as described above this will be `~/ants_build/bin/ants/bin/`
 
-4. Add the repository directory to the ```PYTONPATH``` system variable:
+5. Add the repository directory to the ```PYTHONPATH``` system variable:
 ```
+cd 3DUNetCNN
 $ export PYTHONPATH=${PWD}:$PYTHONPATH
 ```
-5. Convert the data to nifti format and perform image wise normalization and correction:
+6. Convert the data to nifti format and perform image wise normalization and correction:
 
 cd into the brats subdirectory:
 ```
@@ -41,15 +72,13 @@ $ python
 >>> from preprocess import convert_brats_data
 >>> convert_brats_data("data/original", "data/preprocessed")
 ```
-Note: This may take days. By default the preprocessing will process one
-subject at a time. You can modify the thread count variable
-`NUM_FOLDER_PROCESS_THREADS` in preprocess.py to multithread
-this. On an IBM AC922 server you can set this to 120 threads. The preprocessing
-will take 100% of the CPU and will finish in under two hours.
+Note: By default the preprocessing will process 120
+subjects at a time. You can modify the thread count variable
+`NUM_FOLDER_PROCESS_THREADS` in preprocess.py to change the concurrency.
 
-6. Run the training:
+7. Run the training:
 
-To run training using the original UNet model:
+To run training using the original UNet model (Not LMS enabled):
 ```
 $ python train.py
 ```
@@ -58,16 +87,6 @@ To run training using an improved UNet model (recommended):
 ```
 $ python train_isensee2017.py
 ```
-**If you run out of memory during training:** try setting
-```config['patch_shape`] = (64, 64, 64)``` for starters.
-Also, read the "Configuration" notes at the bottom of this page.
-
-If you are running the train_isensee2017.py model multiple times you should
-run:
-```
-$ rm isensee*
-```
-between runs to remove the model and train/validation id files.
 
 ### Write prediction images from the validation data
 In the training above, part of the data was held out for validation purposes.
@@ -78,7 +97,8 @@ $ python predict.py
 The predictions will be written in the ```prediction``` folder along with the input data and ground truth labels for
 comparison.
 
-If you have trained the isensee2017 model you will need to copy or rename
+If you have trained the isensee2017 model with the default parameters, the
+model name will be generated with a random name. You will need to copy or rename
 the model and validation ID files to the file names predict.py expects:
 ```
 $ cp isensee_2017_model.h5 tumor_segmentation_model.h5
@@ -108,7 +128,7 @@ The both the loss graph and the box plot were created by running the
 folder after training has been completed.
 
 ### Results from Isensee et al. 2017 model
-I also trained a [model](unet3d/model/isensee2017.py) with the architecture as described in the [2017 BRATS proceedings
+I (ellisdg) also trained a [model](unet3d/model/isensee2017.py) with the architecture as described in the [2017 BRATS proceedings
 ](https://www.cbica.upenn.edu/sbia/Spyridon.Bakas/MICCAI_BraTS/MICCAI_BraTS_2017_proceedings_shortPapers.pdf)
 on page 100. This [architecture](doc/isensee2017.png) employs a number of changes to the basic UNet including an
 [equally weighted dice coefficient](unet3d/metrics.py#L17),
@@ -122,36 +142,26 @@ As the results below show, this network performed much better than the original 
 ![Isensee boxplot scores
 ](doc/isensee_2017_scores_boxplot.png)
 
-### Configuration
-Changing the configuration dictionary in the [train.py](brats/train.py) or the
-[train_isensee2017.py](brats/train_isensee2017.py) scripts, makes it easy to test out different model and
-training configurations.
-I would recommend trying out the Isensee et al. model first and then modifying the parameters until you have satisfactory
-results.
-If you are running out of memory, try training using ```(64, 64, 64)``` shaped patches.
-Reducing the "batch_size" and "validation_batch_size" parameters will also reduce the amount of memory required for
-training as smaller batch sizes feed smaller chunks of data to the CNN.
-If the batch size is reduced down to 1 and it still you are still running
-out of memory, you could also try changing the patch size to ```(32, 32, 32)```.
-Keep in mind, though, that a smaller patch sizes may not perform as well as larger patch sizes.
-
 ## TensorFlow Large Model Support
 ### TensorFlow Builds
 The TensorFlow Large Model Support integration is written assuming the use of
-the TensorFlow build included in IBM PowerAI which includes [TensorFlow
-pull request 19845](https://github.com/tensorflow/tensorflow/pull/19845). The
-model can also be used with non-IBM PowerAI TensorFlow builds. To run
-without IBM PowerAI, the pull request Python changes should be placed in the
-TensorFlow module and the `config_memory_optimizer()` call should be uncommented
-in [train_isensee2017.py](brats/train_isensee2017.py). Note that the
-memory_optimizer.cc changes from the pull request are not needed if you
-uncomment the call to  `config_memory_optimizer()`.
+the TensorFlow build included in IBM Watson Machine Learning Community Edition / IBM PowerAI.
 
 ### TensorFlow Large Model Support tuning
 You can modify the TensorFlow Large Model Support (TFLMS) tuning by passing command line
 parameters. See the training usage for more information:
 ```
 python train_isensee2017.py --help
+```
+
+An example command to run the 320^3 size with TFLMS (possible on a 32GB GPU) is:
+```
+# TF_CUDA_HOST_MEM_LIMIT_IN_MB in TensorFlow < 1.14
+# TF_GPU_HOST_MEM_LIMIT_IN_MB in TensorFlow >= 1.14
+export TF_CUDA_HOST_MEM_LIMIT_IN_MB=300000
+export TF_GPU_HOST_MEM_LIMIT_IN_MB=$TF_CUDA_HOST_MEM_LIMIT_IN_MB
+
+numactl --cpunodebind=0 --membind=0 python train_isensee2017.py --lms --data_file_path=320_data.h5 --image_size 320
 ```
 
 ## Using this code on other 3D datasets
