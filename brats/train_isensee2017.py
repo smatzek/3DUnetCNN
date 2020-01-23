@@ -53,7 +53,7 @@ config["data_file"] = os.path.abspath("brats_data.h5")
 config["model_file"] = os.path.abspath("isensee_2017_model.h5")
 config["training_file"] = os.path.abspath("isensee_training_ids.pkl")
 config["validation_file"] = os.path.abspath("isensee_validation_ids.pkl")
-config["training_log_file"] = 'training.log'
+config["training_log_file"] = 'training.csv'
 config["overwrite"] = False  # If True, will previous files. If False, will use previously written files.
 config['lms_stats_logfile'] = 'lms_stats.csv'
 
@@ -234,7 +234,7 @@ if __name__ == "__main__":
 
         config["model_file"] = os.path.abspath("%s_isensee_2017_model.h5" % random_part)
         config['lms_stats_logfile'] = ("%s_" + config['lms_stats_logfile']) % random_part
-        config["training_log_file"] = "%s_training.log" % random_part
+        config["training_log_file"] = "%s_training.csv" % random_part
 
         with open("%s_run_params.txt" % random_part,"w") as paramlog:
             paramlog.write(str(FLAGS))

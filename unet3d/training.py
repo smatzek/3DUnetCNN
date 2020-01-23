@@ -20,7 +20,7 @@ def step_decay(epoch, initial_lrate, drop, epochs_drop):
 
 
 def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0.5, learning_rate_epochs=None,
-                  learning_rate_patience=50, logging_file="training.log", verbosity=1,
+                  learning_rate_patience=50, logging_file="training.csv", verbosity=1,
                   early_stopping_patience=None, callbacks_config=dict()):
     callbacks = list()
     callbacks.append(ModelCheckpoint(model_file, save_best_only=True))
