@@ -59,8 +59,8 @@ def main():
     plt.savefig("validation_scores_boxplot.png")
     plt.close()
 
-    if os.path.exists("./training.log"):
-        training_df = pd.read_csv("./training.log").set_index('epoch')
+    if os.path.exists("./training.csv"):
+        training_df = pd.read_csv("./training.csv").set_index('epoch')
 
         plt.plot(training_df['loss'].values, label='training loss')
         plt.plot(training_df['val_loss'].values, label='validation loss')

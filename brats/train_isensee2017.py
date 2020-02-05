@@ -3,6 +3,7 @@ import os
 import glob
 import random
 import string
+import tensorflow as tf
 
 from unet3d.data import write_data_to_file, open_data_file
 from unet3d.generator import get_training_and_validation_generators
@@ -10,42 +11,7 @@ from unet3d.model import isensee2017_model
 from unet3d.training import load_old_model, train_model
 
 
-dist_mod = None
-if "DDL_OPTIONS" in os.environ:
-  import ddl
-  dist_mod = ddl
-
-if "USE_HOROVOD_3DUNET" in os.environ:
-  import tensorflow as tf
-  from tensorflow.core.protobuf import rewriter_config_pb2
-  from tensorflow.python.keras import backend as K
-  import horovod.keras as hvd
-  dist_mod = hvd
-  # Initialize Horovod
-  hvd.init()
-
-  # Pin GPU to be used to process local rank (one GPU per process)
-  print ("*****Horovod local rank = ", hvd.local_rank(), "*****")
-  config = tf.ConfigProto()
-  # The below config is needed on non-PowerAI builds of TensorFlow.
-  config.graph_options.rewrite_options.memory_optimization  = rewriter_config_pb2.RewriterConfig.SCHEDULING_HEURISTICS
-  config.gpu_options.allow_growth = True
-  config.gpu_options.visible_device_list = str(hvd.local_rank())
-  K.set_session(tf.Session(config=config))
-
-
 FLAGS = None
-def config_memory_optimizer():
-    # Set config for memory optimizer
-    import tensorflow as tf
-    from tensorflow.core.protobuf import rewriter_config_pb2
-    from tensorflow.python.keras import backend as K
-    config = tf.ConfigProto()
-    config.graph_options.rewrite_options.memory_optimization  = rewriter_config_pb2.RewriterConfig.SCHEDULING_HEURISTICS
-    K.set_session(tf.Session(config=config))
-
-# This is needed on non-PowerAI builds of TensorFlow.
-#config_memory_optimizer()
 
 def setup_input_shape():
     if "patch_shape" in config and config["patch_shape"] is not None:
@@ -72,10 +38,7 @@ config["validation_batch_size"] = 1
 config["n_epochs"] = 500  # cutoff the training after this many epochs
 config["patience"] = 10  # learning rate will be reduced after this many epochs if the validation loss is not improving
 config["early_stop"] = 50  # training will be stopped after this many epochs without the validation loss improving
-if dist_mod:
-  config["initial_learning_rate"] = 5e-4 * dist_mod.size()
-else:
-  config["initial_learning_rate"] = 5e-4
+config["initial_learning_rate"] = 5e-4
 config["learning_rate_drop"] = 0.5  # factor by which the learning rate will be reduced
 config["validation_split"] = 0.8  # portion of the data that will be used for training
 config["flip"] = False  # augments the data by randomly flipping an axis during
@@ -90,7 +53,10 @@ config["data_file"] = os.path.abspath("brats_data.h5")
 config["model_file"] = os.path.abspath("isensee_2017_model.h5")
 config["training_file"] = os.path.abspath("isensee_training_ids.pkl")
 config["validation_file"] = os.path.abspath("isensee_validation_ids.pkl")
+config["training_log_file"] = 'training.csv'
 config["overwrite"] = False  # If True, will previous files. If False, will use previously written files.
+config['lms_stats_logfile'] = 'lms_stats.csv'
+config['lms_average_stats_logfile'] = 'lms_average_stats.csv'
 
 
 def fetch_training_data_files(return_subject_ids=False):
@@ -109,6 +75,27 @@ def fetch_training_data_files(return_subject_ids=False):
 
 
 def main(overwrite=False):
+
+    if FLAGS.lms:
+        tf.config.experimental.set_lms_enabled(True)
+        print('LMS Enabled')
+        if FLAGS.lms_defrag:
+            tf.config.experimental.set_lms_defrag_enabled(True)
+            print('LMS Defragmentation Enabled')
+        else:
+            print('LMS Defragmentation Disabled')
+
+    else:
+        print('LMS Disabled')
+
+
+    if FLAGS.gpu_memory_limit:
+        print('Limiting GPU memory to %s MB' % FLAGS.gpu_memory_limit)
+        physical_devices = tf.config.experimental.list_physical_devices('GPU')
+        tf.config.experimental.set_virtual_device_configuration(
+          physical_devices[0],
+          [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=FLAGS.gpu_memory_limit)])
+
     # convert input images into an hdf5 file
     if overwrite or not os.path.exists(config["data_file"]):
         training_files, subject_ids = fetch_training_data_files(return_subject_ids=True)
@@ -150,6 +137,20 @@ def main(overwrite=False):
     if FLAGS.validation_steps:
         n_validation_steps = FLAGS.validation_steps
 
+    callbacks_config = {'cuda_profile_epoch': FLAGS.cuda_profile_epoch,
+                        'cuda_profile_batch_start': FLAGS.cuda_profile_batch_start,
+                        'cuda_profile_batch_end': FLAGS.cuda_profile_batch_end,
+                        'training_log_file': config["training_log_file"],
+                        'lms_stats_logfile': config['lms_stats_logfile'],
+                        'lms_average_stats_logfile': config['lms_average_stats_logfile']}
+    if FLAGS.lms_stats:
+        callbacks_config['lms_stats_enabled'] = True
+    if FLAGS.lms_stats_average:
+        callbacks_config['lms_stats_average_enabled'] = True
+        callbacks_config['image_size'] = FLAGS.image_size
+        callbacks_config['batch_size'] = config["batch_size"]
+        callbacks_config['lms_stats_warmup_steps'] = FLAGS.lms_stats_warmup_steps
+
     # run training
     train_model(model=model,
                 model_file=config["model_file"],
@@ -162,16 +163,7 @@ def main(overwrite=False):
                 learning_rate_patience=config["patience"],
                 early_stopping_patience=config["early_stop"],
                 n_epochs=config["n_epochs"],
-                lms=FLAGS.lms,
-                swapout_threshold=FLAGS.swapout_threshold,
-                swapin_groupby=FLAGS.swapin_groupby,
-                swapin_ahead=FLAGS.swapin_ahead,
-                serialization=FLAGS.serialization,
-                serialization_by_size=FLAGS.serialization_by_size,
-                sync_mode=FLAGS.sync_mode,
-                cuda_profile_epoch=FLAGS.cuda_profile_epoch,
-                cuda_profile_batch_start=FLAGS.cuda_profile_batch_start,
-                cuda_profile_batch_end=FLAGS.cuda_profile_batch_end)
+                callbacks_config=callbacks_config)
     data_file_opened.close()
 
 
@@ -198,35 +190,44 @@ if __name__ == "__main__":
     lms_group.add_argument('--no-lms', dest='lms', action='store_false',
                            help='Disable TFLMS (Default)')
     parser.set_defaults(lms=False)
-    parser.add_argument("--swapout_threshold", type=int, default=-1,
-                        help='The TFLMS swapout_threshold parameter. See the '
-                             'TFLMS documentation for more information. '
-                             'Default `-1` (auto mode).')
-    parser.add_argument("--swapin_groupby", type=int, default=-1,
-                        help='The TFLMS swapin_groupby parameter. See the '
-                             'TFLMS documentation for more information. '
-                             'Default `-1` (auto mode).')
-    parser.add_argument("--swapin_ahead", type=int, default=-1,
-                        help='The TFLMS swapin_ahead parameter. See the '
-                             'TFLMS documentation for more information. '
-                             'Default `-1` (auto mode).')
-    parser.add_argument("--serialization", type=int, default=-1,
-                        help='The layer to start serialization on. This '
-                             'number will be passed to the LMS serialization '
-                             'parameter as the start of a slice like this: '
-                             '[\'parameter:\']. See the TFLMS documentation '
-                             'for more information. Default -1, no '
-                             'serialization.')
-    parser.add_argument("--serialization_by_size", type=float, default=0,
-                        help='Serialize operations in levels of the '
-                             'topological sort, if the cumulative memory '
-                             'consumption of the level is greater than '
-                             'serialization_by_size. The size unit is GiB. '
-                             'Default 0 (turn off).')
-    parser.add_argument("--sync_mode", type=int, default=0,
-                        help='Sync mode of TFLMS. See the TFLMS documentation '
-                             'for more information. Default: no '
-                             'synchronization.')
+    parser.add_argument("--gpu_memory_limit", type=int, default=0,
+                        help='Set up a single virtual GPU device with the '
+                             'specified amount of GPU memory (in MB). '
+                             'Disabled by default.')
+    defrag_group = parser.add_mutually_exclusive_group(required=False)
+    defrag_group.add_argument('--lms_defrag', dest='lms_defrag',
+                              action='store_true',
+                              help='Enable LMS defragmentation')
+    defrag_group.add_argument('--no-lms_defrag', dest='lms_defrag',
+                              action='store_false',
+                              help='Disable LMS defragmentation (Default)')
+    parser.set_defaults(lms_defrag=False)
+    lms_stats = parser.add_mutually_exclusive_group(required=False)
+    lms_stats.add_argument('--lms_stats', dest='lms_stats', action='store_true',
+                           help='Log LMS per-step stats to a file named '
+                                '*_lms_stats.csv')
+    lms_stats.add_argument('--no-lms_stats', dest='lms_stats',
+                           action='store_false',
+                           help='Disable logging LMS per-step stats (Default)')
+    parser.set_defaults(lms_stats=False)
+
+    lms_stats_average = parser.add_mutually_exclusive_group(required=False)
+    lms_stats_average.add_argument('--lms_stats_average',
+         dest='lms_stats_average',
+         action='store_true',
+         help='Log LMS average stats to a file named '
+              '*_lms_stats_average.csv')
+    lms_stats_average.add_argument('--no-lms_stats_average',
+        dest='lms_stats_average', action='store_false',
+        help='Disable logging LMS average stats (Default)')
+    parser.set_defaults(lms_stats_average=False)
+
+    parser.add_argument('--lms_stats_warmup_steps',
+                        default=5,
+                        help='The number of steps to train before starting '
+                             'LMS statistics recording. (Default 5)',
+                        type=int)
+
     parser.add_argument('--steps_per_epoch', type=int,
                       default=0,
                       help='An override for the number of steps to run in an '
@@ -243,10 +244,10 @@ if __name__ == "__main__":
                            'The default is to use the default number of '
                            'validation steps given the training/validation '
                            'subject split.')
-    parser.add_argument('--randomize_model_name', type=bool,
+    parser.add_argument('--randomize_output_file_names', type=bool,
                       default=True,
-                      help='This will generate a random name for the model on '
-                           'each run. Default is True')
+                      help='This will generate and a prepend random name '
+                           'for training output files. Default is True')
     parser.add_argument('--cuda_profile_epoch', type=int,
                       default=0,
                       help='The epoch in which to start CUDA profiling '
@@ -264,9 +265,16 @@ if __name__ == "__main__":
     config['image_shape'] = (FLAGS.image_size, FLAGS.image_size, FLAGS.image_size)
     setup_input_shape()
     config['data_file'] = FLAGS.data_file_path
-    if FLAGS.randomize_model_name:
+    if FLAGS.randomize_output_file_names:
         random_part = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-        config["model_file"] = os.path.abspath("isensee_2017_model_%s.h5" % random_part)
-        print('Generated model filename: %s' % config["model_file"])
+        print('The prefix for output file names is:', random_part)
+
+        config["model_file"] = os.path.abspath("%s_isensee_2017_model.h5" % random_part)
+        config['lms_stats_logfile'] = ("%s_" + config['lms_stats_logfile']) % random_part
+        config["training_log_file"] = "%s_training.csv" % random_part
+
+        with open("%s_run_params.txt" % random_part,"w") as paramlog:
+            paramlog.write(str(FLAGS))
+
 
     main(overwrite=config["overwrite"])
