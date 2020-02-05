@@ -9,7 +9,7 @@ from tensorflow.keras.models import load_model
 
 from unet3d.metrics import (dice_coefficient, dice_coefficient_loss, dice_coef, dice_coef_loss,
                             weighted_dice_coefficient_loss, weighted_dice_coefficient)
-from unet3d.callbacks import CudaProfileCallback, LMSStatsLogger
+from unet3d.callbacks import CudaProfileCallback, LMSStatsLogger, LMSStatsAverage
 
 import sys
 import os
@@ -40,6 +40,14 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
                                              callbacks_config['cuda_profile_batch_end']))
     if callbacks_config.get('lms_stats_enabled'):
         callbacks.append(LMSStatsLogger(callbacks_config['lms_stats_logfile']))
+
+    if callbacks_config.get('lms_stats_average_enabled'):
+        lms = LMSStatsAverage(callbacks_config['lms_average_stats_logfile'],
+                              callbacks_config['image_size'],
+                              batch_size=callbacks_config['batch_size'],
+                              start_batch=callbacks_config['lms_stats_warmup_steps'],
+                              image_dimensions=3)
+        callbacks.append(lms)
 
     return callbacks
 

@@ -56,6 +56,7 @@ config["validation_file"] = os.path.abspath("isensee_validation_ids.pkl")
 config["training_log_file"] = 'training.csv'
 config["overwrite"] = False  # If True, will previous files. If False, will use previously written files.
 config['lms_stats_logfile'] = 'lms_stats.csv'
+config['lms_average_stats_logfile'] = 'lms_average_stats.csv'
 
 
 def fetch_training_data_files(return_subject_ids=False):
@@ -78,8 +79,11 @@ def main(overwrite=False):
     if FLAGS.lms:
         tf.config.experimental.set_lms_enabled(True)
         print('LMS Enabled')
-        tf.config.experimental.set_lms_defrag_enabled(True)
-        print('LMS Defragmentation Enabled')
+        if FLAGS.lms_defrag:
+            tf.config.experimental.set_lms_defrag_enabled(True)
+            print('LMS Defragmentation Enabled')
+        else:
+            print('LMS Defragmentation Disabled')
 
     else:
         print('LMS Disabled')
@@ -137,9 +141,15 @@ def main(overwrite=False):
                         'cuda_profile_batch_start': FLAGS.cuda_profile_batch_start,
                         'cuda_profile_batch_end': FLAGS.cuda_profile_batch_end,
                         'training_log_file': config["training_log_file"],
-                        'lms_stats_logfile': config['lms_stats_logfile']}
+                        'lms_stats_logfile': config['lms_stats_logfile'],
+                        'lms_average_stats_logfile': config['lms_average_stats_logfile']}
     if FLAGS.lms_stats:
         callbacks_config['lms_stats_enabled'] = True
+    if FLAGS.lms_stats_average:
+        callbacks_config['lms_stats_average_enabled'] = True
+        callbacks_config['image_size'] = FLAGS.image_size
+        callbacks_config['batch_size'] = config["batch_size"]
+        callbacks_config['lms_stats_warmup_steps'] = FLAGS.lms_stats_warmup_steps
 
     # run training
     train_model(model=model,
@@ -184,12 +194,39 @@ if __name__ == "__main__":
                         help='Set up a single virtual GPU device with the '
                              'specified amount of GPU memory (in MB). '
                              'Disabled by default.')
-    lms_group = parser.add_mutually_exclusive_group(required=False)
-    lms_group.add_argument('--lms_stats', dest='lms_stats', action='store_true',
-                           help='Enable logging of LMS stats')
-    lms_group.add_argument('--no-lms_stats', dest='lms_stats', action='store_false',
-                           help='Disable logging of LMS stats (Default)')
+    defrag_group = parser.add_mutually_exclusive_group(required=False)
+    defrag_group.add_argument('--lms_defrag', dest='lms_defrag',
+                              action='store_true',
+                              help='Enable LMS defragmentation')
+    defrag_group.add_argument('--no-lms_defrag', dest='lms_defrag',
+                              action='store_false',
+                              help='Disable LMS defragmentation (Default)')
+    parser.set_defaults(lms_defrag=False)
+    lms_stats = parser.add_mutually_exclusive_group(required=False)
+    lms_stats.add_argument('--lms_stats', dest='lms_stats', action='store_true',
+                           help='Log LMS per-step stats to a file named '
+                                '*_lms_stats.csv')
+    lms_stats.add_argument('--no-lms_stats', dest='lms_stats',
+                           action='store_false',
+                           help='Disable logging LMS per-step stats (Default)')
     parser.set_defaults(lms_stats=False)
+
+    lms_stats_average = parser.add_mutually_exclusive_group(required=False)
+    lms_stats_average.add_argument('--lms_stats_average',
+         dest='lms_stats_average',
+         action='store_true',
+         help='Log LMS average stats to a file named '
+              '*_lms_stats_average.csv')
+    lms_stats_average.add_argument('--no-lms_stats_average',
+        dest='lms_stats_average', action='store_false',
+        help='Disable logging LMS average stats (Default)')
+    parser.set_defaults(lms_stats_average=False)
+
+    parser.add_argument('--lms_stats_warmup_steps',
+                        default=5,
+                        help='The number of steps to train before starting '
+                             'LMS statistics recording. (Default 5)',
+                        type=int)
 
     parser.add_argument('--steps_per_epoch', type=int,
                       default=0,
