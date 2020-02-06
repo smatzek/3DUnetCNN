@@ -1,18 +1,36 @@
 # 3D U-Net Convolution Neural Network with Keras
 
-## Overview of tflmsv2 branch
-The changes in the tflmsv2 branch from the original ellisdg repository generally consist of these items:
-1. Changes to this README to expand on setup and usage sections.
-2. Changes to the model to use tf.keras from TensorFlow.
-3. Changes to use optionally use TensorFlow Large Model Support in IBM PowerAI,
- [IBM PowerAI documentation](https://www.ibm.com/support/knowledgecenter/SS5SF7_1.6.0/welcome/welcome.html).
-4. Changes to allow command line specification of TensorFlow Large Model
-Support tuning parameters to train_isensee2017.py.
-5. Changes to optionally allow training the model in a multi-GPU distributed
-fashion using IBM Distributed Deep Learning.
-6. Changes to optionally allow training the model in a multi-GPU distributed
-fashion using [Horovod](https://github.com/uber/horovod)
-7. Changes to enable CUDA profiling.
+## Overview of this fork and its branches
+This fork of the original ellisdg repository is used to test and demonstrate
+TensorFlow Large Model Support (TFLMS). The training, prediction, and evaluation
+programs have been modified to allow command line parameter control of file
+names, and training parameters.
+
+The original ellisdg code has been modified to use TensorFlow Keras (tf.keras),
+and has been updated to use later versions of TensorFlow, including TensorFlow
+2 with its eager execution.
+
+TensorFlow Large Model Support has several implementations, which
+have been provided with various versions of IBM Watson Machine Learning
+Community Edition or IBM PowerAI. This model has been updated to work with
+them over time and separate branches have been created for the different
+implementations.
+
+### Notable branches
+- `current_lms` - This branch contains changes to support the current
+implementation of TFLMS. It currently supports the
+TFLMS version available in the Early Access conda
+channel of IBM Watson Machine Learning Community Edition with source and
+documentation here: https://github.com/IBM/tensorflow-large-model-support
+- `tflmsv2` - This branch contains changes to support the TFLMS implementation
+named "TFLMSv2" which is provided with IBM PowerAI 1.6.0 and
+IBM Watson Machine Learning Community Edition 1.6.x.
+- `tflmsv1` - This branch contains changes to support the TFLMS implementation
+named "TFLMSv1" which is provided in the IBM PowerAI 1.5.x releases and open
+sourced as a separate module in the `tflmsv1` branch of
+https://github.com/IBM/tensorflow-large-model-support.
+- `master` - This branch is the original master as it was at the time the
+ellisdg repository was forked.
 
 ![Tumor Segmentation Example](doc/tumor_segmentation_illusatration.gif)
 ## Background
@@ -157,7 +175,7 @@ As the results below show, this network performed much better than the original 
 
 
 ## TensorFlow Large Model Support
-You can modify enable TensorFlow Large Model Support by passing command line
+You can enable TensorFlow Large Model Support by passing command line
 parameters. Additional parameters allow specifying different input data files,
 image sizes, profiling, log LMS statitics, and more.
 See the training usage for more information:
