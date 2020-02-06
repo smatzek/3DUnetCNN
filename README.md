@@ -141,12 +141,7 @@ As the results below show, this network performed much better than the original 
 ](doc/isensee_2017_scores_boxplot.png)
 
 ## TensorFlow Large Model Support
-### TensorFlow Builds
-The TensorFlow Large Model Support integration is written assuming the use of
-the TensorFlow build included in IBM Watson Machine Learning Community Edition / IBM PowerAI.
-
-### TensorFlow Large Model Support
-You can modify enable TensorFlow Large Model Support by passing command line
+You can enable TensorFlow Large Model Support by passing command line
 parameters. Additional parameters allow specifying different input data files,
 image sizes, profiling, log LMS statitics, and more.
 See the training usage for more information:
