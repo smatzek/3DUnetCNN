@@ -19,9 +19,8 @@ implementations.
 ### Notable branches
 - `current_lms` - This branch contains changes to support the current
 implementation of TFLMS. It currently supports the
-TFLMS version available in the Early Access conda
-channel of IBM Watson Machine Learning Community Edition with source and
-documentation here: https://github.com/IBM/tensorflow-large-model-support
+TFLMS version available in the IBM Watson Machine Learning Community Edition 
+1.7.0 with source and documentation here: https://github.com/IBM/tensorflow-large-model-support
 - `tflmsv2_tf2.0.0` - This branch contains changes to support running the model
 with TensorFlow 2.0.0 using the `compat.v1` mode, while using the TFLMSv2
 implementation.
