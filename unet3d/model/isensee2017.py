@@ -1,5 +1,9 @@
 import os
 from functools import partial
+# import Horovod if invoked with distribution
+hvd = None
+if "OMPI_COMM_WORLD_RANK" in os.environ:
+    import horovod.tensorflow.keras as hvd
 
 from tensorflow.keras.layers import Input, LeakyReLU, Add, UpSampling3D, Activation, SpatialDropout3D
 from tensorflow.keras.models import Model
@@ -80,8 +84,15 @@ def isensee2017_model(input_shape=(4, 128, 128, 128), n_base_filters=16, depth=5
     model = Model(inputs=inputs, outputs=activation_block)
 
     opt = optimizer(lr=initial_learning_rate)
+    if hvd:
+        opt = hvd.DistributedOptimizer(opt)
+        experimental_run_tf_function = False
+    else:
+        experimental_run_tf_function = True
 
-    model.compile(optimizer=opt, loss=loss_function)
+
+    model.compile(optimizer=opt, loss=loss_function,
+                  experimental_run_tf_function=experimental_run_tf_function)
     return model
 
 

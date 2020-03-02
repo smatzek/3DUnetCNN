@@ -1,7 +1,12 @@
 import time
 import csv
 import math
+import os
 from functools import partial
+# import Horovod if invoked with distribution
+hvd = None
+if "OMPI_COMM_WORLD_RANK" in os.environ:
+    import horovod.tensorflow.keras as hvd
 
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, LearningRateScheduler, ReduceLROnPlateau, EarlyStopping
@@ -23,8 +28,21 @@ def get_callbacks(model_file, initial_learning_rate=0.0001, learning_rate_drop=0
                   learning_rate_patience=50, logging_file="training.csv", verbosity=1,
                   early_stopping_patience=None, callbacks_config=dict()):
     callbacks = list()
-    callbacks.append(ModelCheckpoint(model_file, save_best_only=True))
-    callbacks.append(CSVLogger(logging_file, append=True))
+
+    if hvd:
+        callbacks.append(hvd.callbacks.BroadcastGlobalVariablesCallback(0))
+        callbacks.append(hvd.callbacks.MetricAverageCallback())
+        # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
+        # accuracy. Scale the learning rate `lr = 1.0` ---> `lr = 1.0 * hvd.size()` during
+        # the first three epochs. See https://arxiv.org/abs/1706.02677 for details.
+        callbacks.append(hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=3, verbose=1))
+
+    # Only add model checkpointing and CSVLogger on the rank=0 node when using
+    # Horovod
+    if not hvd or hvd.rank() == 0:
+        callbacks.append(ModelCheckpoint(model_file, save_best_only=True))
+        callbacks.append(CSVLogger(logging_file, append=True))
+
     if learning_rate_epochs:
         callbacks.append(LearningRateScheduler(partial(step_decay, initial_lrate=initial_learning_rate,
                                                        drop=learning_rate_drop, epochs_drop=learning_rate_epochs)))
@@ -96,6 +114,7 @@ def train_model(model, model_file, training_generator, validation_generator, ste
     """
     model.fit(training_generator,
               steps_per_epoch=steps_per_epoch,
+              verbose=1 if not hvd or hvd.rank() == 0 else 0,
               epochs=n_epochs,
               validation_data=validation_generator,
               validation_steps=validation_steps,
