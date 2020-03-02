@@ -4,6 +4,11 @@ import glob
 import random
 import string
 import tensorflow as tf
+# import Horovod if invoked with distribution
+hvd = None
+if "OMPI_COMM_WORLD_RANK" in os.environ:
+    import horovod.tensorflow.keras as hvd
+    hvd.init()
 
 from unet3d.data import write_data_to_file, open_data_file
 from unet3d.generator import get_training_and_validation_generators
@@ -39,6 +44,8 @@ config["n_epochs"] = 500  # cutoff the training after this many epochs
 config["patience"] = 10  # learning rate will be reduced after this many epochs if the validation loss is not improving
 config["early_stop"] = 50  # training will be stopped after this many epochs without the validation loss improving
 config["initial_learning_rate"] = 5e-4
+if hvd:
+    config["initial_learning_rate"] = 5e-4 * hvd.size()
 config["learning_rate_drop"] = 0.5  # factor by which the learning rate will be reduced
 config["validation_split"] = 0.8  # portion of the data that will be used for training
 config["flip"] = False  # augments the data by randomly flipping an axis during
@@ -55,8 +62,8 @@ config["training_file"] = os.path.abspath("isensee_training_ids.pkl")
 config["validation_file"] = os.path.abspath("isensee_validation_ids.pkl")
 config["training_log_file"] = 'training.csv'
 config["overwrite"] = False  # If True, will previous files. If False, will use previously written files.
-config['lms_stats_logfile'] = 'lms_stats.csv'
-config['lms_average_stats_logfile'] = 'lms_average_stats.csv'
+config['lms_stats_logfile'] = 'lms_stats'
+config['lms_average_stats_logfile'] = 'lms_average_stats'
 
 
 def fetch_training_data_files(return_subject_ids=False):
@@ -88,6 +95,11 @@ def main(overwrite=False):
     else:
         print('LMS Disabled')
 
+    if hvd:
+        # Horovod: pin GPU to be used to process local rank (one GPU per process)
+        gpus = tf.config.list_physical_devices('GPU')
+        tf.config.experimental.set_memory_growth(gpus[hvd.local_rank()], True)
+        tf.config.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
 
     if FLAGS.gpu_memory_limit:
         print('Limiting GPU memory to %s MB' % FLAGS.gpu_memory_limit)
@@ -165,6 +177,18 @@ def main(overwrite=False):
                 n_epochs=config["n_epochs"],
                 callbacks_config=callbacks_config)
     data_file_opened.close()
+
+
+def generate_stats_name(random_part, root):
+    # Generates the name of the output stats file.
+    # If Horovod distribution is enabled, the node and GPU ID
+    # are appended to the end
+    if random_part:
+        random_part = '%s_' % random_part
+    return ('%s%s%s%s.csv' %
+           (random_part, root,
+           ('_%s' % os.environ["HOSTNAME"] if hvd else ""),
+           (('_gpu%s' % hvd.local_rank()) if hvd else "")))
 
 
 if __name__ == "__main__":
@@ -265,16 +289,36 @@ if __name__ == "__main__":
     config['image_shape'] = (FLAGS.image_size, FLAGS.image_size, FLAGS.image_size)
     setup_input_shape()
     config['data_file'] = FLAGS.data_file_path
+    random_part = ''
     if FLAGS.randomize_output_file_names:
         random_part = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-        print('The prefix for output file names is:', random_part)
+        if not hvd or hvd.rank() == 0:
+            print('The prefix for output file names is:', random_part)
 
+        # Only hvd rank 0 or single GPU case will write these files.
         config["model_file"] = os.path.abspath("%s_isensee_2017_model.h5" % random_part)
-        config['lms_stats_logfile'] = ("%s_" + config['lms_stats_logfile']) % random_part
         config["training_log_file"] = "%s_training.csv" % random_part
 
-        with open("%s_run_params.txt" % random_part,"w") as paramlog:
-            paramlog.write(str(FLAGS))
+        if not hvd or hvd.rank() == 0:
+            with open("%s_run_params.txt" % random_part,"w") as paramlog:
+                paramlog.write(str(FLAGS))
+        if not hvd:
+            config['lms_stats_logfile'] = generate_stats_name(random_part,
+                                                              config['lms_stats_logfile'])
+
+    # We cannot randomize this file name when using Horovod because
+    # the random_part which acts as a "runID" will be different in each
+    # GPU process.
+    if hvd:
+        config['lms_stats_logfile'] = generate_stats_name('', config['lms_stats_logfile'])
+
+    # do not use random_part for the average file so multiple separate
+    # runs will append to the same stats file for a given GPU
+    config['lms_average_stats_logfile'] = generate_stats_name('', config['lms_average_stats_logfile'])
 
 
+    if hvd and FLAGS.gpu_memory_limit:
+        print('Error: This model does not support limiting GPU memory while '
+              'running with Horovod.')
+        exit(1)
     main(overwrite=config["overwrite"])

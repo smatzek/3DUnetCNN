@@ -3,6 +3,10 @@ import sys
 import copy
 from random import shuffle
 import itertools
+# import Horovod if invoked with distribution
+hvd = None
+if "OMPI_COMM_WORLD_RANK" in os.environ:
+    import horovod.tensorflow.keras as hvd
 
 import numpy as np
 
@@ -57,6 +61,9 @@ def get_training_and_validation_generators(data_file, batch_size, n_labels, trai
                                                           training_file=training_keys_file,
                                                           validation_file=validation_keys_file)
 
+    if hvd:
+      training_lists = [training_list[i::hvd.size()] for i in range(hvd.size())]
+      training_list = training_lists[hvd.rank()]
 
     training_generator = data_generator(data_file, training_list,
                                         batch_size=batch_size,
@@ -71,6 +78,9 @@ def get_training_and_validation_generators(data_file, batch_size, n_labels, trai
                                         skip_blank=skip_blank,
                                         permute=permute)
 
+    if hvd:
+      validation_lists = [validation_list[i::hvd.size()] for i in range(hvd.size())]
+      validation_list = validation_lists[hvd.rank()]
 
     validation_generator = data_generator(data_file, validation_list,
                                           batch_size=validation_batch_size,
@@ -80,10 +90,17 @@ def get_training_and_validation_generators(data_file, batch_size, n_labels, trai
                                           patch_overlap=validation_patch_overlap,
                                           skip_blank=skip_blank)
 
-    num_training_steps = get_number_of_steps(get_number_of_patches(data_file, training_list, patch_shape,
-                                                                   skip_blank=skip_blank,
-                                                                   patch_start_offset=training_patch_start_offset,
-                                                                   patch_overlap=0), batch_size)
+    # Set the number of training and testing samples per epoch correctly
+    if hvd:
+      num_training_steps = max([get_number_of_steps(get_number_of_patches(data_file, training_lists[i], patch_shape,
+                                                                          skip_blank=skip_blank,
+                                                                          patch_start_offset=training_patch_start_offset,
+                                                                          patch_overlap=0), batch_size) for i in range(hvd.size())])
+    else:
+      num_training_steps = get_number_of_steps(get_number_of_patches(data_file, training_list, patch_shape,
+                                                                     skip_blank=skip_blank,
+                                                                     patch_start_offset=training_patch_start_offset,
+                                                                     patch_overlap=0), batch_size)
     print("Number of training steps: ", num_training_steps)
 
     num_validation_steps = get_number_of_steps(get_number_of_patches(data_file, validation_list, patch_shape,
@@ -119,8 +136,9 @@ def get_validation_split(data_file, training_file, validation_file, data_split=0
         nb_samples = data_file.root.data.shape[0]
         sample_list = list(range(nb_samples))
         training_list, validation_list = split_list(sample_list, split=data_split)
-        pickle_dump(training_list, training_file)
-        pickle_dump(validation_list, validation_file)
+        if not hvd or hvd.rank() == 0:
+            pickle_dump(training_list, training_file)
+            pickle_dump(validation_list, validation_file)
         return training_list, validation_list
     else:
         print("Loading previous validation split...")
