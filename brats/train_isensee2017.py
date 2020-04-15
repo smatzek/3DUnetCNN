@@ -86,12 +86,6 @@ def main(overwrite=False):
     if FLAGS.lms:
         tf.config.experimental.set_lms_enabled(True)
         print('LMS Enabled')
-        if FLAGS.lms_defrag:
-            tf.config.experimental.set_lms_defrag_enabled(True)
-            print('LMS Defragmentation Enabled')
-        else:
-            print('LMS Defragmentation Disabled')
-
     else:
         print('LMS Disabled')
 
@@ -218,14 +212,6 @@ if __name__ == "__main__":
                         help='Set up a single virtual GPU device with the '
                              'specified amount of GPU memory (in MB). '
                              'Disabled by default.')
-    defrag_group = parser.add_mutually_exclusive_group(required=False)
-    defrag_group.add_argument('--lms_defrag', dest='lms_defrag',
-                              action='store_true',
-                              help='Enable LMS defragmentation')
-    defrag_group.add_argument('--no-lms_defrag', dest='lms_defrag',
-                              action='store_false',
-                              help='Disable LMS defragmentation (Default)')
-    parser.set_defaults(lms_defrag=False)
     lms_stats = parser.add_mutually_exclusive_group(required=False)
     lms_stats.add_argument('--lms_stats', dest='lms_stats', action='store_true',
                            help='Log LMS per-step stats to a file named '

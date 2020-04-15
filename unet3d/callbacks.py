@@ -27,7 +27,7 @@ nvtx=  ctypes.CDLL("libnvToolsExt.so")
 nvtx.nvtxMarkA.restype = None
 
 STATS_KEYS = ['time', 'allocs', 'reclaim_ones',
-              'reclaim_alls', 'defrags', 'gib_reclaimed', 'gib_defragged']
+              'reclaim_alls', 'gib_reclaimed']
 
 class CudaProfileCallback(Callback):
     def __init__(self, profile_epoch, profile_batch_start, profile_batch_end):
@@ -66,9 +66,7 @@ class LMSStats():
         stats['allocs'] = tf.experimental.get_num_allocs(self._gpu_id)
         stats['reclaim_ones'] = tf.experimental.get_num_single_reclaims(self._gpu_id)
         stats['reclaim_alls'] = tf.experimental.get_num_full_reclaims(self._gpu_id)
-        stats['defrags'] = tf.experimental.get_num_defragmentations(self._gpu_id)
         stats['gib_reclaimed'] = tf.experimental.get_bytes_reclaimed(self._gpu_id) / 1073741824.0
-        stats['gib_defragged'] = tf.experimental.get_bytes_defragged(self._gpu_id) / 1073741824.0
         return stats
 
     def step_begin(self):
@@ -92,12 +90,19 @@ class LMSStats():
         return self._cumulative_stats.copy()
 
     def get_average_stats(self):
-        s = self._num_steps * 1.0
-        average =  {k: v/s for (k,v) in self._cumulative_stats.items()}
-        average['num_steps'] = self._num_steps
-        return average
+        if self._num_steps:
+            s = self._num_steps * 1.0
+            average =  {k: v/s for (k,v) in self._cumulative_stats.items()}
+            average['num_steps'] = self._num_steps
+            return average
+        else:
+            average = {k: 0 for k in STATS_KEYS}
+            average['num_steps'] = 0
+            return average
 
     def get_median_time(self):
+        if not self._step_times:
+            return 0
         return statistics.median(self._step_times)
 
 # writes the stats from the last call to step_end to the log file
@@ -107,9 +112,7 @@ def write_step_stats(logfile, step_type, epoch, step_num, step_stats):
         row.append(step_stats['allocs'])
         row.append(step_stats['reclaim_ones'])
         row.append(step_stats['reclaim_alls'])
-        row.append(step_stats['defrags'])
         row.append(step_stats['gib_reclaimed'])
-        row.append(step_stats['gib_defragged'])
         with open(logfile, 'a+', newline='') as csvfile:
             statswriter = csv.writer(csvfile)
             statswriter.writerow(row)
@@ -120,8 +123,7 @@ def write_step_log_header(logfile):
         statswriter = csv.writer(csvfile)
         statswriter.writerow(['step type', 'epoch', 'step',
                               'duration', 'allocs', 'reclaimOnes',
-                              'reclaimAlls', 'defrags',
-                              'GiB reclaimed', 'GiB defragged'])
+                              'reclaimAlls', 'GiB reclaimed'])
 
 
 class LMSStatsLogger(Callback):
@@ -239,10 +241,19 @@ class LMSStatsAverage(Callback):
             rate_field = 'megavoxels/sec'
 
         duration = stats_dict['time']
-        rate = ((self._batch_size * (self._dim ** self._num_dims)) / duration ) / 1000000.0
+        if duration:
+            rate = ((self._batch_size * (self._dim ** self._num_dims)) /
+                    duration ) / 1000000.0
+        else:
+            rate = 0
 
         duration = self._lms_stats.get_median_time()
-        median_rate = ((self._batch_size * (self._dim ** self._num_dims)) / duration ) / 1000000.0
+        if duration:
+            median_rate = ((self._batch_size * (self._dim ** self._num_dims)) /
+                           duration ) / 1000000.0
+        else:
+            median_rate = 0
+
         median_rate_field = 'median '+rate_field
         # Put these columns first, with the rest of the stats in a sorted
         # order.
